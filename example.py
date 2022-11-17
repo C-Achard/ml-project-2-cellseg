@@ -857,17 +857,17 @@ if __name__ == "__main__":
     config = TrainerConfig()
     config.validation_percent = 0.8
     config.train_volume_directory = str(
-        Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/train/vol"
+        "../dataset/cropped_visual/train/vol"
     )
     config.train_label_directory = str(
-        Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/train/lab_sem"
+        Path.home() / "../dataset/cropped_visual/train/lab_sem"
     )
 
     # use these if not using validation_percent
     # config.val_volume_directory = str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/vol")
     # config.val_label_directory = str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/lab_sem")
 
-    config.results_path = str(Path.home() / "Desktop/test")
+    config.results_path = str("../results")
 
     config.num_samples = 1
     config.max_epochs = 10
@@ -881,9 +881,9 @@ if __name__ == "__main__":
     pred_conf.model_info.name = "SwinUNetR"
     pred_conf.model_info.model_input_size= 128
 
-    pred_conf.results_path = str(Path.home() / "Desktop/test")
-    pred_conf.weights_config.path = str(Path.home() / "Desktop/Code/CellSeg3d/napari_cellseg3d/models/pretrained/Swin64_best_metric.pth")
-    pred_conf.image = imread(str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/vol/crop_vol_val.tif"))
+    pred_conf.results_path = str("../test")
+    pred_conf.weights_config.path = str()
+    pred_conf.image = imread(str())
 
     worker = Inference(config=pred_conf)
     worker.log_parameters()
