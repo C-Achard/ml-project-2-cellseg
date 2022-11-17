@@ -1,6 +1,8 @@
 import glob
 import logging
-import os
+
+# import os
+from pathlib import Path
 
 # MONAI
 import torch
@@ -14,14 +16,15 @@ from monai.losses import (
     TverskyLoss,
 )
 
-from cellseg3dmodule.models import (
+from models import (
     model_SegResNet as SegResNet,
     model_TRAILMAP as TRAILMAP,
     model_VNet as VNet,
     TRAILMAP_test as TMAP,
     model_Swin as Swin,
 )
-from cellseg3dmodule.config import ImageStats
+
+# from cellseg3dmodule.config import ImageStats
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +36,7 @@ from skimage.measure import regionprops
 from dask_image.imread import imread
 
 
-def get_loss(key):
+def get_loss(key, device="cpu"):
     loss_dict = {
         "Dice loss": DiceLoss(sigmoid=True),
         "Focal loss": FocalLoss(),
@@ -42,7 +45,9 @@ def get_loss(key):
         "DiceCELoss": DiceCELoss(
             to_onehot_y=True,
             softmax=True,
-            ce_weight=torch.tensor([0.15, 1, 0.05]).cuda(),  # background, cell, edge
+            ce_weight=torch.tensor([0.15, 1, 0.05]).to(
+                device
+            ),  # background, cell, edge
         ),
         "Tversky loss": TverskyLoss(sigmoid=True),
     }
@@ -62,24 +67,24 @@ def get_model(key):
 
 def zoom_factor(voxel_sizes):
     base = min(voxel_sizes)
-    return [base/s for s in voxel_sizes]
+    return [base / s for s in voxel_sizes]
 
 
 def create_dataset_dict(volume_directory, label_directory):
     """Creates data dictionary for MONAI transforms and training."""
-    images_filepaths = sorted(glob.glob(os.path.join(volume_directory, "*.tif")))
+    images_filepaths = sorted(glob.glob(str(Path(volume_directory) / "*.tif")))
 
-    labels_filepaths = sorted(glob.glob(os.path.join(label_directory, "*.tif")))
+    labels_filepaths = sorted(glob.glob(str(Path(label_directory) / "*.tif")))
     if len(images_filepaths) == 0 or len(labels_filepaths) == 0:
         raise ValueError("Data folders are empty")
 
     logger.info("Images :")
     for file in images_filepaths:
-        logger.info(os.path.basename(file).split(".")[0])
+        logger.info(Path(file).stem)
     logger.info("*" * 10)
     logger.info("Labels :")
     for file in labels_filepaths:
-        logger.info(os.path.basename(file).split(".")[0])
+        logger.info(Path(file).stem)
 
     data_dicts = [
         {"image": image_name, "label": label_name}
@@ -141,63 +146,63 @@ def get_padding_dim(image_shape, anisotropy_factor=None):
     return padding
 
 
-def volume_stats(volume_image) -> ImageStats:
-    """Computes various statistics from instance labels and returns them in a dict.
-    Currently provided :
-
-        * "Volume": volume of each object
-        * "Centroid": x,y,z centroid coordinates for each object
-        * "Sphericity (axes)": sphericity computed from semi-minor and semi-major axes
-        * "Image size": size of the image
-        * "Total image volume": volume in pixels of the whole image
-        * "Total object volume (pixels)": total labeled volume in pixels
-        * "Filling ratio": ratio of labeled over total pixel volume
-        * "Number objects": total number of unique labeled objects
-
-    Args:
-        volume_image: instance labels image
-
-    Returns:
-        dict: Statistics described above
-    """
-
-    properties = regionprops(volume_image)
-
-    # sphericity_va = []
-    def sphericity(region):
-        try:
-            return sphericity_axis(
-                region.axis_major_length * 0.5, region.axis_minor_length * 0.5
-            )
-        except ValueError:
-            return (
-                np.nan
-            )  # FIXME better way ? inconsistent errors in region.axis_minor_length
-
-    sphericity_ax = [sphericity(region) for region in properties]
-
-    volume = [region.area for region in properties]
-
-    def fill(lst, n=len(properties) - 1):
-        return fill_list_in_between(lst, n, "")
-
-    if len(volume_image.flatten()) != 0:
-        ratio = np.sum(volume) / len(volume_image.flatten())
-    else:
-        ratio = 0
-
-    return ImageStats(
-        volume=volume,
-        centroid_x=[region.centroid[0] for region in properties],
-        centroid_y=[region.centroid[0] for region in properties],
-        centroid_z=[region.centroid[2] for region in properties],
-        sphericity_ax=sphericity_ax,
-        image_size=volume_image.shape,
-        total_image_volume=len(volume_image.flatten()),
-        total_filled_volume=np.sum(volume),
-        filling_ratio=ratio,
-        number_objects=len(properties),
-    )
+# def volume_stats(volume_image) -> ImageStats:
+#     """Computes various statistics from instance labels and returns them in a dict.
+#     Currently provided :
+#
+#         * "Volume": volume of each object
+#         * "Centroid": x,y,z centroid coordinates for each object
+#         * "Sphericity (axes)": sphericity computed from semi-minor and semi-major axes
+#         * "Image size": size of the image
+#         * "Total image volume": volume in pixels of the whole image
+#         * "Total object volume (pixels)": total labeled volume in pixels
+#         * "Filling ratio": ratio of labeled over total pixel volume
+#         * "Number objects": total number of unique labeled objects
+#
+#     Args:
+#         volume_image: instance labels image
+#
+#     Returns:
+#         dict: Statistics described above
+#     """
+#
+#     properties = regionprops(volume_image)
+#
+#     # sphericity_va = []
+#     def sphericity(region):
+#         try:
+#             return sphericity_axis(
+#                 region.axis_major_length * 0.5, region.axis_minor_length * 0.5
+#             )
+#         except ValueError:
+#             return (
+#                 np.nan
+#             )  # FIXME better way ? inconsistent errors in region.axis_minor_length
+#
+#     sphericity_ax = [sphericity(region) for region in properties]
+#
+#     volume = [region.area for region in properties]
+#
+#     def fill(lst, n=len(properties) - 1):
+#         return fill_list_in_between(lst, n, "")
+#
+#     if len(volume_image.flatten()) != 0:
+#         ratio = np.sum(volume) / len(volume_image.flatten())
+#     else:
+#         ratio = 0
+#
+#     return ImageStats(
+#         volume=volume,
+#         centroid_x=[region.centroid[0] for region in properties],
+#         centroid_y=[region.centroid[0] for region in properties],
+#         centroid_z=[region.centroid[2] for region in properties],
+#         sphericity_ax=sphericity_ax,
+#         image_size=volume_image.shape,
+#         total_image_volume=len(volume_image.flatten()),
+#         total_filled_volume=np.sum(volume),
+#         filling_ratio=ratio,
+#         number_objects=len(properties),
+#     )
 
 
 def fill_list_in_between(lst, n, elem):

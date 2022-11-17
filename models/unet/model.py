@@ -1,8 +1,8 @@
 import torch.nn as nn
 
-from cellseg3dmodule.models.unet.buildingblocks import create_decoders
-from cellseg3dmodule.models.unet.buildingblocks import create_encoders
-from cellseg3dmodule.models.unet.buildingblocks import DoubleConv
+from models.unet.buildingblocks import create_decoders
+from models.unet.buildingblocks import create_encoders
+from models.unet.buildingblocks import DoubleConv
 
 
 def number_of_features_per_level(init_channel_number, num_levels):

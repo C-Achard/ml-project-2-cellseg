@@ -2,22 +2,20 @@ from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 import json
 import logging
-import numpy as np
 from typing import List
 from typing import Optional
 from pathlib import Path
 import warnings
 
-from schema.utils.path_dataclass import PathConfig
-from cellseg3dmodule.models import model_SegResNet as SegResNet
-from cellseg3dmodule.models import model_Swin as SwinUNetR
-from cellseg3dmodule.models import model_VNet as VNet
-from cellseg3dmodule.models import model_TRAILMAP as TRAILMAP_MS
+import numpy as np
 
-from cellseg3dmodule.post_processing import binary_connected
-from cellseg3dmodule.post_processing import binary_watershed
+from models import model_SegResNet as SegResNet
+from models import model_Swin as SwinUNetR
+from models import model_VNet as VNet
+from models import model_TRAILMAP as TRAILMAP_MS
 
-# TODO(cyril) DOCUMENT !!! and add default values
+from post_processing import binary_connected
+from post_processing import binary_watershed
 
 MODEL_LIST = {
     "VNet": VNet,
@@ -31,14 +29,7 @@ INSTANCE_SEGMENTATION_METHOD_LIST = {
     "Connected components": binary_connected,
 }
 
-#################
-# USE LINE BELOW TO SET FILE STORAGE JSON LOCATION
-#################
-FILE_STORAGE = PathConfig().load_from_json(
-    Path(__file__).parent.resolve() / "../schema/path_config.json"
-)
-#################
-# FILE_STORAGE = Path.home() / Path("Desktop/Code/BRAINREG_DATA/test_data")
+FILE_STORAGE = Path.home() / Path("Desktop/Code/test")
 WEIGHTS_PATH = Path(__file__).parent.resolve() / Path("models/pretrained")
 
 logger = logging.getLogger(__name__)
@@ -74,7 +65,9 @@ class ModelInfo:
 
     @staticmethod
     def get_model_name_list():
-        logger.info(f"Model list :\n" + str([f"{name}\n" for name in MODEL_LIST.keys()]))
+        logger.info(
+            f"Model list :\n" + str([f"{name}\n" for name in MODEL_LIST.keys()])
+        )
         return MODEL_LIST.keys()
 
 

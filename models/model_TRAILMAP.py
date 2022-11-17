@@ -1,4 +1,4 @@
-from cellseg3dmodule.models.unet.model import UNet3D
+from models.unet.model import UNet3D
 
 
 def get_weights_file():

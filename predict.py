@@ -19,10 +19,10 @@ from monai.transforms import (
 )
 from tifffile import imwrite
 
-from cellseg3dmodule.config import InferenceWorkerConfig
-from cellseg3dmodule.config import WEIGHTS_PATH
-from cellseg3dmodule.post_processing import binary_watershed, binary_connected
-from cellseg3dmodule.scripts.weights_download import WeightsDownloader
+from config import InferenceWorkerConfig
+from config import WEIGHTS_PATH
+from post_processing import binary_watershed, binary_connected
+from scripts.weights_download import WeightsDownloader
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +30,11 @@ SWIN = "SwinUNetR"
 
 CONFIG_PATH = Path().absolute() / "cellseg3dmodule/inference_config.json"
 
+
 class Inference:
     def __init__(
         self,
-        config: InferenceWorkerConfig = InferenceWorkerConfig().load_from_json(CONFIG_PATH),
+        config: InferenceWorkerConfig = InferenceWorkerConfig(),
     ):
         self.config = config
         # print(self.config)
@@ -114,7 +115,9 @@ class Inference:
         instance_labels = method(to_instance)
 
         instance_filepath = self.save_image(
-            name=f"Instance_labels_{image_id}", image=instance_labels, folder="instance_labels"
+            name=f"Instance_labels_{image_id}",
+            image=instance_labels,
+            folder="instance_labels",
         )
 
         self.log(
@@ -230,7 +233,7 @@ class Inference:
     def aniso_transform(self, image):
         zoom = self.config.post_process_config.zoom.zoom_values
         if zoom is None:
-            zoom = [1,1,1]
+            zoom = [1, 1, 1]
         anisotropic_transform = Zoom(
             zoom=zoom,
             keep_size=False,
@@ -238,7 +241,7 @@ class Inference:
         )
         return anisotropic_transform(image[0])
 
-    def inference(self, image_id:int = 0):
+    def inference(self, image_id: int = 0):
 
         try:
             dims = self.config.model_info.model_input_size
@@ -280,17 +283,16 @@ class Inference:
                 post_process_transforms = EnsureType()
             else:
                 t = post_process_config.thresholding.threshold_value
-                post_process_transforms = Compose([AsDiscrete(threshold=t), EnsureType()])
+                post_process_transforms = Compose(
+                    [AsDiscrete(threshold=t), EnsureType()]
+                )
 
             self.log("\nLoading weights...")
             if weights_config.path is not None:
                 weights_path = weights_config.path
             else:
                 downloader = WeightsDownloader()
-                downloader.download_weights(
-                    model_name,
-                    model_class.get_weights_file()
-                )
+                downloader.download_weights(model_name, model_class.get_weights_file())
                 weights_path = str(Path(WEIGHTS_PATH) / model_class.get_weights_file())
             logger.info(f"Trying to load weights : {weights_path}")
             model.load_state_dict(
@@ -300,8 +302,9 @@ class Inference:
                 )
             )
             self.log("Done")
+            if self.config.image is not None:
+                input_image = self.load_layer(self.config.image)
 
-            input_image = self.load_layer(self.config.image)
             model.eval()
             with torch.no_grad():
                 self.log(f"Inference started on layer...")
@@ -316,7 +319,9 @@ class Inference:
                 )
 
                 file_path = self.save_image(
-                    name=f"Semantic_labels_{image_id}", image=out, folder="semantic_labels"
+                    name=f"Semantic_labels_{image_id}",
+                    image=out,
+                    folder="semantic_labels",
                 )
 
             if self.config.compute_instance_boundaries:
