@@ -128,3 +128,6 @@ venv.bak/
 *.pth
 *.png
 _
+
+#vscode
+.vscode/
