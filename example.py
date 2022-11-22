@@ -857,10 +857,10 @@ if __name__ == "__main__":
     config = TrainerConfig()
     config.validation_percent = 0.8
     config.train_volume_directory = str(
-        "../dataset/cropped_visual/train/vol"
+        Path("../dataset/cropped_visual/train/vol")
     )
     config.train_label_directory = str(
-        Path.home() / "../dataset/cropped_visual/train/lab_sem"
+         Path("../dataset/cropped_visual/train/lab_sem")
     )
 
     # use these if not using validation_percent
