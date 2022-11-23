@@ -5,7 +5,12 @@ from tifffile import imwrite
 import scipy.ndimage as ndimage
 
 
-def make_artefact_labels(image, labels, threshold_artefact_brightness_percent=50,threshold_artefact_size_percent=50):
+def make_artefact_labels(
+    image,
+    labels,
+    threshold_artefact_brightness_percent=50,
+    threshold_artefact_size_percent=50,
+):
     """Make a new label image with artefacts labelled as 1.
     Parameters
     ----------
@@ -25,7 +30,6 @@ def make_artefact_labels(image, labels, threshold_artefact_brightness_percent=50
     neurones = np.array(labels > 0)
     non_neurones = np.array(labels == 0)
 
-
     # calculate the percentile of the intensity of all the pixels that are labeled as neurones
     threshold = np.percentile(image[neurones], threshold_artefact_brightness_percent)
 
@@ -36,14 +40,15 @@ def make_artefact_labels(image, labels, threshold_artefact_brightness_percent=50
     artefacts = np.where(image > threshold, 1, 0)
     artefacts = np.where(non_neurones, artefacts, 0)
 
-    #calculate the percentile of the size of the neurones
-    neurone_size_percentile = np.percentile(ndimage.sum(neurones, labels, range(np.max(labels) + 1)), threshold_artefact_size_percent)
+    # calculate the percentile of the size of the neurones
+    neurone_size_percentile = np.percentile(
+        ndimage.sum(neurones, labels, range(np.max(labels) + 1)),
+        threshold_artefact_size_percent,
+    )
     # print("mean neurone size: ", neurone_size, "std: ", neurone_size_std)
 
     # select artefacts by size
-    artefacts = select_artefacts_by_size(
-        artefacts, neurone_size_percentile
-    )
+    artefacts = select_artefacts_by_size(artefacts, neurone_size_percentile)
 
     return artefacts
 
@@ -88,7 +93,12 @@ image = imread(im)
 labeled_im = "dataset/visual_tif/labels/testing_im.tif"
 labels = imread(labeled_im)
 
-artefacts = make_artefact_labels(image, labels, threshold_artefact_brightness_percent=20,threshold_artefact_size_percent=10)
+artefacts = make_artefact_labels(
+    image,
+    labels,
+    threshold_artefact_brightness_percent=20,
+    threshold_artefact_size_percent=10,
+)
 
 # save the artefact image
 imwrite("dataset/visual_tif/artefact.tif", artefacts)
