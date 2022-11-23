@@ -480,6 +480,7 @@ class Trainer:
             f"Train completed, best_metric: {best_metric:.4f} at epoch: {best_metric_epoch}"
         )
 
+
 import logging
 from pathlib import Path
 from pathlib import PurePath
@@ -856,12 +857,8 @@ if __name__ == "__main__":
 
     config = TrainerConfig()
     config.validation_percent = 0.8
-    config.train_volume_directory = str(
-        Path("../dataset/cropped_visual/train/vol")
-    )
-    config.train_label_directory = str(
-         Path("../dataset/cropped_visual/train/lab_sem")
-    )
+    config.train_volume_directory = str(Path("../dataset/cropped_visual/train/vol"))
+    config.train_label_directory = str(Path("../dataset/cropped_visual/train/lab_sem"))
 
     # use these if not using validation_percent
     # config.val_volume_directory = str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/vol")
@@ -879,7 +876,7 @@ if __name__ == "__main__":
     pred_conf = InferenceWorkerConfig()
     # pred_conf.model_info.name = "SegResNet"
     pred_conf.model_info.name = "SwinUNetR"
-    pred_conf.model_info.model_input_size= 128
+    pred_conf.model_info.model_input_size = 128
 
     pred_conf.results_path = str("../test")
     pred_conf.weights_config.path = str()
@@ -888,4 +885,3 @@ if __name__ == "__main__":
     worker = Inference(config=pred_conf)
     worker.log_parameters()
     worker.inference()
-
