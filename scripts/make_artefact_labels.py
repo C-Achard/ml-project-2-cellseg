@@ -35,9 +35,13 @@ def make_artefact_labels(image, labels, artefact_threshold_adjustment=0):
     threshold = mean + artefact_threshold_adjustment * std
     # print("threshold", threshold, "mean", mean, "std", std)
 
+    if threshold < 0:
+        threshold = 0
+        print("Warning: threshold for artefact detection is negative, setting to 0")
+
     # take all the pixels that are above the threshold and that are not labeled as neurones
-    artefacts = np.where(non_neurones, image, 0)
-    artefacts = np.where(artefacts > threshold, 1, 0)
+    artefacts = np.where(image > threshold, 1, 0)
+    artefacts = np.where(non_neurones, artefacts, 0)
 
     # calculate the mean size of the neurones
     neurone_size = np.mean(ndimage.sum(neurones, labels, range(np.max(labels) + 1)))
