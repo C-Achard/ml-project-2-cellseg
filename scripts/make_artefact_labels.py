@@ -1,5 +1,3 @@
-# convert tif image to numpy array
-
 import matplotlib.pyplot as plt
 import numpy as np
 from tifffile import imread
