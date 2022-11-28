@@ -1,6 +1,8 @@
 dataclasses-json
 torch
+matplotlib
 monai
+napari[all]
 scikit-image
 dask-image
 einops

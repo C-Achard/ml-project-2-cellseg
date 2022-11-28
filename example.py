@@ -484,7 +484,6 @@ class Trainer:
 import logging
 from pathlib import Path
 from pathlib import PurePath
-from datetime import datetime
 
 import numpy as np
 import torch
@@ -688,7 +687,7 @@ class Inference:
             return out
 
     def save_image(self, name, image, folder: str = None):
-        time = "{:%Y_%m_%d_%H_%M_%S}".format(datetime.now())
+        # time = "{:%Y_%m_%d_%H_%M_%S}".format(datetime.now())
 
         result_folder = ""
         if folder is not None:
@@ -698,7 +697,12 @@ class Inference:
 
         folder_path.mkdir(exist_ok=True)
 
-        file_path = folder_path / Path(f"{name}_" + f"{time}_" + self.config.filetype)
+        file_path = folder_path / Path(
+            f"{name}_"
+            +
+            # f"{time}_" +
+            self.config.filetype
+        )
         imwrite(file_path, image)
         filename = PurePath(file_path).name
 
@@ -785,17 +789,30 @@ class Inference:
                 self.log(f"Inference started on layer...")
 
                 image = input_image.type(torch.FloatTensor)
+                self.log("Saving original image...")
+                self.save_image(
+                    "original_volume", input_image.numpy(), self.config.results_path
+                )
 
+                self.log("Predicting...")
                 out = self.model_output(
                     image,
                     model,
-                    post_process_transforms,
-                    aniso_transform=self.aniso_transform,
+                    EnsureType(),
+                    # post_process=True,
+                    # aniso_transform=self.aniso_transform,
                 )
 
+                self.log("Saving prediction...")
+                self.save_image("prediction", out, "prediction")
+
+                self.log("Done")
+
+                out = post_process_transforms(out)
+                self.log("Saving semantic labels...")
                 file_path = self.save_image(
                     name=f"Semantic_labels_{image_id}",
-                    image=out,
+                    image=out.numpy(),
                     folder="semantic_labels",
                 )
 

@@ -36,6 +36,29 @@ from skimage.measure import regionprops
 from dask_image.imread import imread
 
 
+def normalize(image, threshold=0.9):
+    """Thresholds then normalizes an image using the mean and standard deviation"""
+    # image[image > threshold] = 1
+    image[image <= threshold] = 0
+    image = (image - image.mean()) / image.std()
+    return image
+
+def dice_metric(y_true, y_pred):
+    """Compute Dice-Sorensen coefficient between two numpy arrays
+    Args:
+        y_true: Ground truth label
+        y_pred: Prediction label
+    Returns: dice coefficient
+    """
+    smooth = 1.0
+    y_true_f = y_true.flatten()
+    y_pred_f = y_pred.flatten()
+    intersection = np.sum(y_true_f * y_pred_f)
+    score = (2.0 * intersection + smooth) / (
+        np.sum(y_true_f) + np.sum(y_pred_f) + smooth
+    )
+    return score
+
 def get_loss(key, device="cpu"):
     loss_dict = {
         "Dice loss": DiceLoss(sigmoid=True),
