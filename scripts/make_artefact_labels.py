@@ -4,76 +4,143 @@ from tifffile import imwrite
 import scipy.ndimage as ndimage
 import os
 import napari
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from post_processing import binary_watershed
+
+
+def map_labels(labels, artefacts):
+    """Map the artefacts labels to the neurones labels.
+    Parameters
+    ----------
+    labels : ndarray
+        Label image with neurones labelled as mulitple values.
+    artefacts : ndarray
+        Label image with artefacts labelled as mulitple values.
+    Returns
+    -------
+    map_labels_existing: numpy array
+        The label value of the artefact and the label value of the neurone associated or the neurones associated
+    new_labels: list
+        The labels of the artefacts that are not labelled in the neurones
+    """
+    map_labels_existing = []
+    new_labels = []
+
+    for i in np.unique(artefacts):
+        if i == 0:
+            continue
+        indexes = labels[artefacts == i]
+        # find the most common label in the indexes
+        unique, counts = np.unique(indexes, return_counts=True)
+        unique = np.flip(unique[np.argsort(counts)])
+        counts = np.flip(counts[np.argsort(counts)])
+        if unique[0] != 0:
+            map_labels_existing.append(np.array([i, unique[np.argmax(counts)]]))
+        elif (
+            counts[0] < np.sum(counts) * 2 / 3.0
+        ):  # the artefact is connected to multiple neurones
+            total = 0
+            ii = 1
+            while total < np.size(indexes) / 3.0:
+                total = np.sum(counts[1 : ii + 1])
+                ii += 1
+            map_labels_existing.append(np.append([i], unique[1 : ii + 1]))
+        else:
+            new_labels.append(i)
+
+    return map_labels_existing, new_labels
 
 
 def make_artefact_labels(
     image,
     labels,
-    threshold_artefact_brightness_percent=50,
-    threshold_artefact_size_percent=50,
+    threshold_artefact_brightness_percent=40,
+    threshold_artefact_size_percent=1,
+    contrast_power=20,
     label_value=2,
     do_multi_label=False,
 ):
-    """Make a new label image with artefacts labelled as 1.
+    """Detect pseudo nucleus.
     Parameters
     ----------
     image : ndarray
-        Image data.
+        Image.
     labels : ndarray
-        Label image data.
+        Label image.
     threshold_artefact_brightness_percent : int, optional
-        The artefacts need to be as least as bright as this percentage of the neurone's pixels.
-    threshold_artefact_size : int, optional
-        The artefacts need to be at least as big as this percentage of the neurones.
-    label_value : int, optional
-        The value to use for the artefact label.
-    do_multi_label : bool, optional
-        If True, the artefacts will be labelled with a different value for each artefact. If False, all artefacts will be labelled with the label_value.
+        Threshold for artefact brightness.
+    threshold_artefact_size_percent : int, optional
+        Threshold for artefact size, if the artefcact is smaller than this percentage of the neurones it will be removed.
+    contrast_power : int, optional
+        Power for contrast enhancement.
+
     Returns
     -------
     ndarray
-        Label image with artefacts labelled as artefact_label.
+        Label image with pseudo nucleus labelled with 1 value per artefact.
     """
+
     neurones = np.array(labels > 0)
     non_neurones = np.array(labels == 0)
 
+    image = (image - np.min(image)) / (np.max(image) - np.min(image))
+
     # calculate the percentile of the intensity of all the pixels that are labeled as neurones
-    #check if the neurones are not empty
+    # check if the neurones are not empty
     if np.sum(neurones) > 0:
-        threshold = np.percentile(image[neurones], threshold_artefact_brightness_percent)
-    else:
-        #take the percentile of the non neurones if the neurones are empty
-        threshold = np.percentile(image[non_neurones], 90)
-
-    # take all the pixels that are above the threshold and that are not labeled as neurones
-    artefacts = np.where(image > threshold, 1, 0)
-    artefacts = np.where(non_neurones, artefacts, 0)
-
-    # calculate the percentile of the size of the neurones
-    if np.sum(neurones) > 0:
-        neurone_size_percentile = np.percentile(
-            ndimage.sum(neurones, labels, range(np.max(labels) + 1)),
-            threshold_artefact_size_percent,
+        threshold = np.percentile(
+            image[neurones], threshold_artefact_brightness_percent
         )
     else:
-        # find all the connected components in the artefacts image
-        labels, nlabels = ndimage.label(artefacts)
+        # take the percentile of the non neurones if the neurones are empty
+        threshold = np.percentile(image[non_neurones], 90)
+
+    # modify the contrast of the image accoring to the threshold with a tanh function and map the values to [0,1]
+
+    image_contrasted = np.tanh((image - threshold) * contrast_power)
+    image_contrasted = (image_contrasted - np.min(image_contrasted)) / (
+        np.max(image_contrasted) - np.min(image_contrasted)
+    )
+
+    artefacts = binary_watershed(
+        image_contrasted, thres_seeding=0.9, thres_small=30, thres_objects=0.4
+    )
+
+    # evaluate where the artefacts are connected to the neurones
+    # map the artefacts label to the neurones label
+    map_labels_existing, new_labels = map_labels(labels, artefacts)
+
+    # remove the artefacts that are connected to the neurones
+    for i in map_labels_existing:
+        artefacts[artefacts == i[0]] = 0
+    # remove all the pixels of the neurones from the artefacts
+    artefacts = np.where(labels > 0, 0, artefacts)
+
+    # remove the artefacts that are too small
+    # calculate the percentile of the size of the neurones
+    if np.sum(neurones) > 0:
+        sizes = ndimage.sum_labels(labels > 0, labels, np.unique(labels))
+        neurone_size_percentile = np.percentile(sizes, threshold_artefact_size_percent)
+    else:
         # find the size of each connected component
-        sizes = ndimage.sum(artefacts, labels, range(nlabels + 1))
-        #remove the 50% smallest connected components
+        sizes = ndimage.sum_labels(labels > 0, labels, np.unique(labels))
+        # remove the smallest connected components
         neurone_size_percentile = np.percentile(sizes, 95)
 
-    # select artefacts by size
-    artefacts = select_artefacts_by_size(artefacts, neurone_size_percentile)
+    artefacts = select_artefacts_by_size(
+        artefacts, min_size=neurone_size_percentile, is_labeled=True
+    )
 
-    # label the artefacts
+    # relable with the label value if the artefacts are not multi label
     if not do_multi_label:
-        artefacts = np.where(artefacts > 0, label_value, 0)
+        artefacts = np.where(artefacts > 0, label_value, artefacts)
 
     return artefacts
 
 
-def select_artefacts_by_size(artefacts, min_size):
+def select_artefacts_by_size(artefacts, min_size, is_labeled=False):
     """Select artefacts by size.
     Parameters
     ----------
@@ -86,30 +153,28 @@ def select_artefacts_by_size(artefacts, min_size):
     ndarray
         Label image with artefacts labelled and small artefacts removed.
     """
-    # find all the connected components in the artefacts image
-    labels, nlabels = ndimage.label(artefacts)
+    if not is_labeled:
+        # find all the connected components in the artefacts image
+        labels = ndimage.label(artefacts)[0]
+    else:
+        labels = artefacts
 
-    # find the size of each connected component
-    sizes = ndimage.sum(artefacts, labels, range(nlabels + 1))
+    # remove the small components
+    for i in np.unique(labels):
+        if i != 0:
+            if np.sum(labels == i) < min_size:
+                artefacts = np.where(labels == i, 0, artefacts)
 
-    # remove the small connected components
-    mask_sizes = sizes < min_size
-    remove_pixel = mask_sizes[
-        labels
-    ]  # where the mask is true and the label is not zero the pixel is removed
-    labels[remove_pixel] = 0
+    return artefacts
 
-    # relabel the image
-    labels, nlabels = ndimage.label(labels)
-
-    return labels
 
 def create_artefact_labels(
     image_path,
     labels_path,
     output_path,
-    threshold_artefact_brightness_percent=20,
-    threshold_artefact_size_percent=10,
+    threshold_artefact_brightness_percent=40,
+    threshold_artefact_size_percent=1,
+    contrast_power=20,
 ):
     """Create a new label image with artefacts labelled as 2 and neurones labelled as 1.
     Parameters
@@ -117,13 +182,15 @@ def create_artefact_labels(
     image_path : str
         Path to image file.
     labels_path : str
-        Path to label image file.
+        Path to label image file with each neurones labelled as a different value.
     output_path : str
         Path to save the output label image file.
     threshold_artefact_brightness_percent : int, optional
         The artefacts need to be as least as bright as this percentage of the neurone's pixels.
     threshold_artefact_size : int, optional
         The artefacts need to be at least as big as this percentage of the neurones.
+    contrast_power : int, optional
+        Power for contrast enhancement.
     """
     image = imread(image_path)
     labels = imread(labels_path)
@@ -133,12 +200,14 @@ def create_artefact_labels(
         labels,
         threshold_artefact_brightness_percent,
         threshold_artefact_size_percent,
+        contrast_power=20,
         label_value=2,
         do_multi_label=False,
     )
     neurones_artefacts_labels = np.where(labels > 0, 1, artefacts)
 
     imwrite(output_path, neurones_artefacts_labels)
+
 
 def visualize_images(paths):
     """Visualize images.
@@ -150,14 +219,16 @@ def visualize_images(paths):
     viewer = napari.Viewer()
     for path in paths:
         viewer.add_image(imread(path), name=os.path.basename(path))
-    #wait for the user to close the viewer
+    # wait for the user to close the viewer
     napari.run()
+
 
 def create_artefact_labels_from_folder(
     path,
     do_visualize=False,
-    threshold_artefact_brightness_percent=20,
-    threshold_artefact_size_percent=10,
+    threshold_artefact_brightness_percent=40,
+    threshold_artefact_size_percent=1,
+    contrast_power=20,
 ):
     """Create a new label image with artefacts labelled as 2 and neurones labelled as 1 for all images in a folder. The images created are stored in a folder artefact_neurones.
     Parameters
@@ -170,54 +241,52 @@ def create_artefact_labels_from_folder(
         The artefacts need to be as least as bright as this percentage of the neurone's pixels.
     threshold_artefact_size : int, optional
         The artefacts need to be at least as big as this percentage of the neurones.
+    contrast_power : int, optional
+        Power for contrast enhancement.
     """
-    #find all the images in the folder and create a list
-    path_labels = [f for f in os.listdir(path+"/lab_sem") if f.endswith(".tif")]
-    path_images = [f for f in os.listdir(path+"/volumes") if f.endswith(".tif")]
-    #sort the list
+    # find all the images in the folder and create a list
+    path_labels = [f for f in os.listdir(path + "/labels") if f.endswith(".tif")]
+    path_images = [f for f in os.listdir(path + "/volumes") if f.endswith(".tif")]
+    # sort the list
     path_labels.sort()
     path_images.sort()
-    #create the output folder
-    os.makedirs(path+"/artefact_neurones", exist_ok=True)
-    #create the artefact labels
+    # create the output folder
+    os.makedirs(path + "/artefact_neurones", exist_ok=True)
+    # create the artefact labels
     for i in range(len(path_labels)):
         print(path_labels[i])
-        #consider that the images and the labels have names in the same alphabetical order
-        create_artefact_labels(path+"/volumes/"+path_images[i], path+"/lab_sem/"+path_labels[i], path+"/artefact_neurones/"+path_labels[i], threshold_artefact_brightness_percent, threshold_artefact_size_percent)
+        # consider that the images and the labels have names in the same alphabetical order
+        create_artefact_labels(
+            path + "/volumes/" + path_images[i],
+            path + "/labels/" + path_labels[i],
+            path + "/artefact_neurones/" + path_labels[i],
+            threshold_artefact_brightness_percent,
+            threshold_artefact_size_percent,
+            contrast_power,
+        )
         if do_visualize:
-            visualize_images([path+"/volumes/"+path_images[i], path+"/lab_sem/"+path_labels[i], path+"/artefact_neurones/"+path_labels[i]])
-
-"""
-
-im = "dataset/visual_tif/volumes/images.tif"
-labeled_im = "dataset/visual_tif/labels/testing_im.tif"
-
-
-image = imread(im)
+            visualize_images(
+                [
+                    path + "/volumes/" + path_images[i],
+                    path + "/labels/" + path_labels[i],
+                    path + "/artefact_neurones/" + path_labels[i],
+                ]
+            )
 
 
-labels = imread(labeled_im)
-
-artefacts = make_artefact_labels(
-    image,
-    labels,
-    threshold_artefact_brightness_percent=20,
-    threshold_artefact_size_percent=10,
-    label_value=2,
-    do_multi_label=False,
-)
-
-# save the artefact image
-imwrite("dataset/visual_tif/artefact.tif", artefacts)
-create_artefact_labels(im, labeled_im, "dataset/visual_tif/artefact_neurones.tif")
-"""
-
-paths=["dataset/cropped_visual/train","dataset/cropped_visual/val","dataset/somatomotor","dataset/visual_tif"]
-
-for path in paths:
-    print(path)
-    create_artefact_labels_from_folder(path, do_visualize=False)
-
-
-#create_artefact_labels("dataset/somatomotor/volumes/c3images.tif", "dataset/somatomotor/lab_sem/c3labels.tif", "dataset/somatomotor/artefact_neurones/c3labels.tif", threshold_artefact_brightness_percent=20, threshold_artefact_size_percent=2)
-#visualize_images(["dataset/somatomotor/volumes/c3images.tif", "dataset/somatomotor/lab_sem/c3labels.tif", "dataset/somatomotor/artefact_neurones/c3labels.tif"])
+if __name__ == "__main__":
+    paths = [
+        "dataset/cropped_visual/train",
+        "dataset/cropped_visual/val",
+        "dataset/somatomotor",
+        "dataset/visual_tif",
+    ]
+    for path in paths:
+        print(path)
+        create_artefact_labels_from_folder(
+            path,
+            do_visualize=False,
+            threshold_artefact_brightness_percent=40,
+            threshold_artefact_size_percent=1,
+            contrast_power=20,
+        )
