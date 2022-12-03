@@ -392,6 +392,9 @@ class Trainer:
                         if self.compute_instance_boundaries:
                             post_pred = AsDiscrete(argmax=True, to_onehot=3)
                             post_label = AsDiscrete(to_onehot=3)
+                        elif self.config.out_channels > 1:
+                            post_pred = AsDiscrete(argmax=True, to_onehot=2)
+                            post_label = AsDiscrete(to_onehot=2)
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
@@ -847,7 +850,7 @@ if __name__ == "__main__":
     config.validation_percent = None
     config.out_channels = 2
 
-    config.batch_size = 5
+    config.batch_size = 1
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
@@ -860,6 +863,7 @@ if __name__ == "__main__":
     config.validation_label_directory = str(repo_path / "dataset/cropped_visual/val/artefact_neurons")
 
     config.results_path = str(repo_path / "results")
+    (repo_path / "results").mkdir(exist_ok=True)
 
     config.sampling = True
     config.num_samples = 1
