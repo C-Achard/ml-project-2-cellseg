@@ -43,6 +43,7 @@ def normalize(image, threshold=0.9):
     image = (image - image.mean()) / image.std()
     return image
 
+
 def dice_metric(y_true, y_pred):
     """Compute Dice-Sorensen coefficient between two numpy arrays
     Args:
@@ -58,6 +59,7 @@ def dice_metric(y_true, y_pred):
         np.sum(y_true_f) + np.sum(y_pred_f) + smooth
     )
     return score
+
 
 def get_loss(key, device="cpu"):
     loss_dict = {
