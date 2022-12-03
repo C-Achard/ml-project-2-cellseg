@@ -3,6 +3,7 @@ import logging
 import matplotlib.pyplot as plt
 
 # MONAI
+import napari
 from monai.data import (
     CacheDataset,
     DataLoader,
@@ -34,9 +35,6 @@ from predict import Inference
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
-
-
-
 
 class Trainer:
     def __init__(
@@ -137,11 +135,11 @@ class Trainer:
             logger.info(f"The volume size is {size}")
             model = self.model_class.get_net(
                 input_image_size=get_padding_dim(size),
-                out_channels=1,
+                out_channels=self.config.out_channels,
                 dropout_prob=0.3,
             )
         else:
-            model = self.model_class.get_net()
+            model = self.model_class.get_net(out_channels = self.config.out_channels)
 
         model = torch.nn.DataParallel(model).to(self.device)
 
@@ -239,7 +237,7 @@ class Trainer:
             load_single_images = Compose(
                 [
                     LoadImaged(keys=["image", "label"]),
-                    EnsureChannelFirstd(keys=["image", "label"]),
+                    EnsureChannelFirstd(keys=["image", "label"], channel_dim=config.out_channels),
                     Orientationd(keys=["image", "label"], axcodes="PLI"),
                     SpatialPadd(
                         keys=["image", "label"],
@@ -354,8 +352,12 @@ class Trainer:
                     batch_data["label"].to(self.device),
                 )
                 optimizer.zero_grad()
-                outputs = self.model_class.get_output(model, inputs)
-                loss = self.loss_function(outputs, labels)
+                probabilities = self.model_class.get_output(model, inputs)
+
+                logger.debug(f"Output shape : {probabilities.shape}")
+                logger.debug(f"Label shape : {labels.shape}")
+
+                loss = self.loss_function(probabilities, labels)
                 loss.backward()
                 optimizer.step()
 
@@ -707,10 +709,11 @@ class Inference:
                         dims,
                         dims,
                     ],
+                    out_channels = self.config.out_channels,
                 )
             elif model_name == "SwinUNetR":
 
-                out_channels = 1
+                out_channels = self.config.out_channels
                 if self.config.compute_instance_boundaries:
                     out_channels = 3
                 model = model_class.get_net(
@@ -834,39 +837,47 @@ class Inference:
 
 
 if __name__ == "__main__":
-    from tifffile import imread
+    # from tifffile import imread
 
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.DEBUG)
     logger.info("Starting training")
 
     config = TrainerConfig()
-    config.validation_percent = 0.8
-    config.train_volume_directory = str(Path("dataset/cropped_visual/train/vol"))
-    config.train_label_directory = str(Path("dataset/cropped_visual/train/lab_sem"))
+    config.validation_percent = None
+    config.out_channels = 2
+
+    config.batch_size = 5
+
+    repo_path = Path(__file__).resolve().parents[1]
+    print(f"REPO PATH : {repo_path}")
+
+    config.train_volume_directory = str(repo_path / "dataset/cropped_visual/train/volumes")
+    config.train_label_directory = str(repo_path / "dataset/cropped_visual/train/artefact_neurons")
 
     # use these if not using validation_percent
-    # config.val_volume_directory = str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/vol")
-    # config.val_label_directory = str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/lab_sem")
+    config.validation_volume_directory = str(repo_path / "dataset/cropped_visual/val/volumes")
+    config.validation_label_directory = str(repo_path / "dataset/cropped_visual/val/artefact_neurons")
 
-    config.results_path = str("../results")
+    config.results_path = str(repo_path / "results")
 
+    config.sampling = True
     config.num_samples = 1
-    config.max_epochs = 10
+    config.max_epochs = 5
 
     trainer = Trainer(config)
-    # trainer.log_parameters()
-    # trainer.train()
+    trainer.log_parameters()
+    trainer.train()
 
-    pred_conf = InferenceWorkerConfig()
+    # pred_conf = InferenceWorkerConfig()
     # pred_conf.model_info.name = "SegResNet"
-    pred_conf.model_info.name = "SwinUNetR"
-    pred_conf.model_info.model_input_size = 128
+    # pred_conf.model_info.name = "SwinUNetR"
+    # pred_conf.model_info.model_input_size = 128
 
-    pred_conf.results_path = str("../test")
-    pred_conf.weights_config.path = str()
-    pred_conf.image = imread(str())
+    # pred_conf.results_path = str("../test")
+    # pred_conf.weights_config.path = str()
+    # pred_conf.image = imread(str())
 
-    worker = Inference(config=pred_conf)
-    worker.log_parameters()
-    worker.inference()
+    # worker = Inference(config=pred_conf)
+    # worker.log_parameters()
+    # worker.inference()

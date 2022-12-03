@@ -136,7 +136,7 @@ class InferenceWorkerConfig:
     """Class to record configuration for Inference job"""
 
     device: str = "cpu"
-    model_info: ModelInfo = ModelInfo("VNet", 64)
+    model_info: ModelInfo = ModelInfo("TRAILMAP_MS")
     weights_config: WeightsInfo = WeightsInfo()
     results_path: str = str(FILE_STORAGE)
     filetype: str = ".tif"
@@ -159,6 +159,41 @@ class InferenceWorkerConfig:
         logger.info(f"Config loaded from json for inference worker")
         return cls.from_dict(data)
 
+####
+# Training configs
+class TrainerConfig:
+    def __init__(self, **kwargs):
+        self.model_info = ModelInfo("TRAILMAP_MS")
+        self.model_name = self.model_info.name
+        self.weights_path = None
+        self.validation_percent = None  # 0.8
+        self.train_volume_directory = ()
+        self.train_label_directory = ()
+        self.validation_volume_directory = ()
+        self.validation_label_directory = ()
+
+        self.max_epochs = 50
+        self.learning_rate = 3e-4
+        self.val_interval = 1
+        self.batch_size = 16
+        self.results_path = ()
+        self.weights_dir = ()
+        self.sampling = True
+        self.num_samples = 160
+        self.sample_size = [64, 64, 64]
+        self.do_augmentation = True
+        self.deterministic = True
+        self.grad_norm_clip = 1.0
+        self.weight_decay = 0.00001
+        self.compute_instance_boundaries = (
+            False  # Change class loss weights in utils.get_loss TODO: choose in config
+        )
+        self.loss_function_name = "Dice loss"  # DiceCELoss
+        self.plot_training_inputs = False
+
+        for k, v in kwargs.items():
+            # this will generate new attributes based on the supplementary arguments
+            setattr(self, k, v)
 
 @dataclass
 class ImageStats:

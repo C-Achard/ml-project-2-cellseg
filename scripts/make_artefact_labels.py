@@ -174,6 +174,7 @@ def create_artefact_labels(
     threshold_artefact_brightness_percent=40,
     threshold_artefact_size_percent=1,
     contrast_power=20,
+    separate_channels=False,
 ):
     """Create a new label image with artefacts labelled as 2 and neurons labelled as 1.
     Parameters
@@ -190,6 +191,8 @@ def create_artefact_labels(
         The artefacts need to be at least as big as this percentage of the neurons.
     contrast_power : int, optional
         Power for contrast enhancement.
+    separate_channels : bool, optional
+        If True, the image is split into channels and the labels and artefacts are detected in each channel.
     """
     image = imread(image_path)
     labels = imread(labels_path)
@@ -199,11 +202,18 @@ def create_artefact_labels(
         labels,
         threshold_artefact_brightness_percent,
         threshold_artefact_size_percent,
-        contrast_power=20,
+        contrast_power=contrast_power,
         label_value=2,
         do_multi_label=False,
     )
+
     neurons_artefacts_labels = np.where(labels > 0, 1, artefacts)
+
+    if separate_channels:
+        artefact_label = np.where(neurons_artefacts_labels == 2, 1, 0)
+        neuron_label = np.where(neurons_artefacts_labels == 1, 1, 0)
+        imwrite(output_path, np.array([neuron_label, artefact_label]))
+        return
 
     imwrite(output_path, neurons_artefacts_labels)
 
@@ -215,7 +225,7 @@ def visualize_images(paths):
     paths : list
         List of paths to images to visualize.
     """
-    viewer = napari.Viewer()
+    viewer = napari.Viewer(ndisplay=3)
     for path in paths:
         viewer.add_image(imread(path), name=os.path.basename(path))
     # wait for the user to close the viewer
@@ -228,6 +238,7 @@ def create_artefact_labels_from_folder(
     threshold_artefact_brightness_percent=40,
     threshold_artefact_size_percent=1,
     contrast_power=20,
+    separate_channels=False,
 ):
     """Create a new label image with artefacts labelled as 2 and neurons labelled as 1 for all images in a folder. The images created are stored in a folder artefact_neurons.
     Parameters
@@ -242,6 +253,8 @@ def create_artefact_labels_from_folder(
         The artefacts need to be at least as big as this percentage of the neurons.
     contrast_power : int, optional
         Power for contrast enhancement.
+    separate_channels : bool, optional
+        If True, the image is split into channels and the labels and artefacts are detected in each channel.
     """
     # find all the images in the folder and create a list
     path_labels = [f for f in os.listdir(path + "/labels") if f.endswith(".tif")]
@@ -262,6 +275,7 @@ def create_artefact_labels_from_folder(
             threshold_artefact_brightness_percent,
             threshold_artefact_size_percent,
             contrast_power,
+            separate_channels,
         )
         if do_visualize:
             visualize_images(
@@ -280,8 +294,8 @@ if __name__ == "__main__":
     paths = [
         "dataset/cropped_visual/train",
         "dataset/cropped_visual/val",
-        "dataset/somatomotor",
-        "dataset/visual_tif",
+        # "dataset/somatomotor",
+        # "dataset/visual_tif",
     ]
     for data_path in paths:
         path = str(repo_path / data_path)
@@ -289,7 +303,9 @@ if __name__ == "__main__":
         create_artefact_labels_from_folder(
             path,
             do_visualize=False,
-            threshold_artefact_brightness_percent=40,
+            threshold_artefact_brightness_percent=20,
             threshold_artefact_size_percent=1,
             contrast_power=20,
+            separate_channels=False,
         )
+

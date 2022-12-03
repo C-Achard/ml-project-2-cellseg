@@ -6,8 +6,8 @@ def get_weights_file():
     return "TRAILMAP_MS_best_metric_epoch_26.pth"
 
 
-def get_net():
-    return UNet3D(1, 1)
+def get_net(out_channels=1):
+    return UNet3D(1, out_channels=out_channels)
 
 
 def get_output(model, input):
