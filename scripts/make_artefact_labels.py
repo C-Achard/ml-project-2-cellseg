@@ -293,4 +293,3 @@ if __name__ == "__main__":
             threshold_artefact_size_percent=1,
             contrast_power=20,
         )
-

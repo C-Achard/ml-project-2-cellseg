@@ -38,9 +38,7 @@ if __name__ == "__main__":
     worker.log_parameters()
     worker.inference()
 
-    ground_truth = imread(
-        str(repo_path / "dataset/visual_tif/labels/testing_im.tif")
-    )
+    ground_truth = imread(str(repo_path / "dataset/visual_tif/labels/testing_im.tif"))
     result = imread(str(repo_path / "test/semantic_labels/Semantic_labels_0_.tif"))
 
     from utils import dice_metric, normalize

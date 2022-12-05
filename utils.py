@@ -97,9 +97,13 @@ def zoom_factor(voxel_sizes):
 
 def create_dataset_dict(volume_directory, label_directory):
     """Creates data dictionary for MONAI transforms and training."""
-    images_filepaths = sorted([str(file) for file in Path(volume_directory).glob("*.tif")])
+    images_filepaths = sorted(
+        [str(file) for file in Path(volume_directory).glob("*.tif")]
+    )
 
-    labels_filepaths = sorted([str(file) for file in Path(label_directory).glob("*.tif")])
+    labels_filepaths = sorted(
+        [str(file) for file in Path(label_directory).glob("*.tif")]
+    )
     if len(images_filepaths) == 0 or len(labels_filepaths) == 0:
         raise ValueError("Data folders are empty")
 

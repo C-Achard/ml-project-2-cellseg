@@ -160,6 +160,7 @@ class InferenceWorkerConfig:
         logger.info(f"Config loaded from json for inference worker")
         return cls.from_dict(data)
 
+
 ####
 # Training configs
 class TrainerConfig:
@@ -195,6 +196,7 @@ class TrainerConfig:
         for k, v in kwargs.items():
             # this will generate new attributes based on the supplementary arguments
             setattr(self, k, v)
+
 
 @dataclass
 class ImageStats:

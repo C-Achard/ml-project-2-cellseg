@@ -36,6 +36,7 @@ from predict import Inference
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 
+
 class Trainer:
     def __init__(
         self,
@@ -139,7 +140,7 @@ class Trainer:
                 dropout_prob=0.3,
             )
         else:
-            model = self.model_class.get_net(out_channels = self.config.out_channels)
+            model = self.model_class.get_net(out_channels=self.config.out_channels)
 
         model = torch.nn.DataParallel(model).to(self.device)
 
@@ -237,7 +238,9 @@ class Trainer:
             load_single_images = Compose(
                 [
                     LoadImaged(keys=["image", "label"]),
-                    EnsureChannelFirstd(keys=["image", "label"], channel_dim=config.out_channels),
+                    EnsureChannelFirstd(
+                        keys=["image", "label"], channel_dim=config.out_channels
+                    ),
                     Orientationd(keys=["image", "label"], axcodes="PLI"),
                     SpatialPadd(
                         keys=["image", "label"],
@@ -712,7 +715,7 @@ class Inference:
                         dims,
                         dims,
                     ],
-                    out_channels = self.config.out_channels,
+                    out_channels=self.config.out_channels,
                 )
             elif model_name == "SwinUNetR":
 
@@ -848,26 +851,31 @@ if __name__ == "__main__":
 
     config = TrainerConfig()
     config.model_info.name = "SegResNet"
-    config.validation_percent = None
+    # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
     config.out_channels = 2
+    config.val_interval = 2
 
     config.batch_size = 4
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
 
-    config.train_volume_directory = str(repo_path / "dataset/somatomotor/volumes")
-    config.train_label_directory = str(repo_path / "dataset/somatomotor/artefact_neurons")
+    config.train_volume_directory = str(repo_path / "dataset/visual_tif/volumes")
+    config.train_label_directory = str(
+        repo_path / "dataset/visual_tif/artefact_neurons"
+    )
 
     # use these if not using validation_percent
-    config.validation_volume_directory = str(repo_path / "dataset/visual_tif/volumes")
-    config.validation_label_directory = str(repo_path / "dataset/visual_tif/artefact_neurons")
+    config.validation_volume_directory = str(repo_path / "dataset/somatomotor/volumes")
+    config.validation_label_directory = str(
+        repo_path / "dataset/somatomotor/artefact_neurons"
+    )
 
     config.results_path = str(repo_path / "results")
     (repo_path / "results").mkdir(exist_ok=True)
 
     config.sampling = True
-    config.num_samples = 10
+    config.num_samples = 40
     config.max_epochs = 20
 
     trainer = Trainer(config)

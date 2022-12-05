@@ -36,8 +36,6 @@ logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 
 
-
-
 class Trainer:
     def __init__(
         self,
@@ -475,9 +473,7 @@ SWIN = "SwinUNetR"
 
 class Inference:
     def __init__(
-        self,
-        config: InferenceWorkerConfig = InferenceWorkerConfig(),
-        logger = None
+        self, config: InferenceWorkerConfig = InferenceWorkerConfig(), logger=None
     ):
         self.config = config
         # print(self.config)
@@ -492,7 +488,7 @@ class Inference:
         logger.info(torch.__version__)
 
     def log(self, message):
-             logger.info(message)
+        logger.info(message)
 
     @staticmethod
     def create_inference_dict(images_filepaths):
@@ -651,7 +647,7 @@ class Inference:
         inputs,
         model,
         post_process_transforms,
-        softmax= False,
+        softmax=False,
         post_process=True,
         aniso_transform=None,
     ):
@@ -715,7 +711,7 @@ class Inference:
                         dims,
                         dims,
                     ],
-                    out_channels = self.config.model_info.out_channels
+                    out_channels=self.config.model_info.out_channels,
                 )
             elif model_name == "SwinUNetR":
 
@@ -725,7 +721,7 @@ class Inference:
                 model = model_class.get_net(
                     img_size=[dims, dims, dims],
                     use_checkpoint=False,
-                    out_channels= self.config.model_info.out_channels,
+                    out_channels=self.config.model_info.out_channels,
                 )
             else:
                 model = model_class.get_net(
@@ -776,7 +772,7 @@ class Inference:
 
                 self.log("Predicting...")
 
-                use_softmax = (self.config.model_info.out_channels > 1)
+                use_softmax = self.config.model_info.out_channels > 1
 
                 out = self.model_output(
                     image,
