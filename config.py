@@ -50,6 +50,7 @@ class ModelInfo:
 
     name: str
     model_input_size: Optional[int] = 64
+    out_channels: Optional[int] = 1
 
     def get_model(self):
         try:

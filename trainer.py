@@ -128,7 +128,7 @@ class Trainer:
             first_volume = LoadImaged(keys=["image"])(self.train_data_dict[0])
             first_volume_shape = first_volume["image"].shape
 
-        if self.config.model_name == "SegResNet":
+        if self.config.model_info.name == "SegResNet":
             if self.sampling:
                 size = self.sample_size
             else:
@@ -139,7 +139,7 @@ class Trainer:
                 out_channels=1,
                 dropout_prob=0.3,
             )
-        elif self.config.model_name == "Swin":
+        elif self.config.model_info.name == "Swin":
             if self.sampling:
                 size = self.sample_size
             else:
@@ -441,7 +441,7 @@ class Trainer:
                         best_metric_epoch = epoch + 1
                         logger.info("Saving best metric model")
 
-                        weights_filename = f"{self.config.model_name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
+                        weights_filename = f"{self.config.model_info.name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
 
                         # DataParallel wrappers keep raw model object in .module attribute
                         raw_model = model.module if hasattr(model, "module") else model

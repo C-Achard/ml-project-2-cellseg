@@ -129,7 +129,7 @@ class Trainer:
             first_volume = LoadImaged(keys=["image"])(self.train_data_dict[0])
             first_volume_shape = first_volume["image"].shape
 
-        if self.config.model_name == "SegResNet":
+        if self.config.model_info.name == "SegResNet":
             if self.sampling:
                 size = self.sample_size
             else:
@@ -428,7 +428,7 @@ class Trainer:
                         best_metric_epoch = epoch + 1
                         logger.info("Saving best metric model")
 
-                        weights_filename = f"{self.config.model_name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
+                        weights_filename = f"{self.config.model_info.name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
 
                         # DataParallel wrappers keep raw model object in .module attribute
                         raw_model = model.module if hasattr(model, "module") else model
@@ -477,10 +477,14 @@ class Inference:
     def __init__(
         self,
         config: InferenceWorkerConfig = InferenceWorkerConfig(),
+        logger = None
     ):
         self.config = config
         # print(self.config)
         # logger.debug(CONFIG_PATH)
+        if logger is None:
+            logger = logging.getLogger(__name__)
+            logging.basicConfig(level=logging.DEBUG)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Using {self.device} device")
@@ -488,7 +492,7 @@ class Inference:
         logger.info(torch.__version__)
 
     def log(self, message):
-        logger.info(message)
+             logger.info(message)
 
     @staticmethod
     def create_inference_dict(images_filepaths):
@@ -608,52 +612,6 @@ class Inference:
         self.log("Done")
         return input_image
 
-    def model_output(
-        self,
-        inputs,
-        model,
-        post_process_transforms,
-        post_process=True,
-        aniso_transform=None,
-    ):
-
-        inputs = inputs.to("cpu")
-        # print(f"Input size: {inputs.shape}")
-        model_output = lambda inputs: post_process_transforms(
-            self.config.model_info.get_model().get_output(model, inputs)
-        )
-
-        if self.config.keep_on_cpu:
-            dataset_device = "cpu"
-        else:
-            dataset_device = self.config.device
-
-        window_size = self.config.sliding_window_config.window_size
-        window_overlap = self.config.sliding_window_config.window_overlap
-
-        outputs = sliding_window_inference(
-            inputs,
-            roi_size=window_size,
-            sw_batch_size=1,
-            predictor=model_output,
-            sw_device=self.config.device,
-            device=dataset_device,
-            overlap=window_overlap,
-            progress=True,
-        )
-
-        out = outputs.detach().cpu()
-
-        if aniso_transform is not None:
-            out = aniso_transform(out)
-
-        if post_process:
-            out = np.array(out).astype(np.float32)
-            out = np.squeeze(out)
-            return out
-        else:
-            return out
-
     def save_image(self, name, image, folder: str = None):
         # time = "{:%Y_%m_%d_%H_%M_%S}".format(datetime.now())
 
@@ -688,6 +646,56 @@ class Inference:
         )
         return anisotropic_transform(image[0])
 
+    def model_output(
+        self,
+        inputs,
+        model,
+        post_process_transforms,
+        softmax= False,
+        post_process=True,
+        aniso_transform=None,
+    ):
+
+        inputs = inputs.to("cpu")
+        # print(f"Input size: {inputs.shape}")
+        model_output = lambda inputs: post_process_transforms(
+            self.config.model_info.get_model().get_output(model, inputs)
+        )
+
+        if self.config.keep_on_cpu:
+            dataset_device = "cpu"
+        else:
+            dataset_device = self.config.device
+
+        window_size = self.config.sliding_window_config.window_size
+        window_overlap = self.config.sliding_window_config.window_overlap
+
+        outputs = sliding_window_inference(
+            inputs,
+            roi_size=window_size,
+            sw_batch_size=1,
+            predictor=model_output,
+            sw_device=self.config.device,
+            device=dataset_device,
+            overlap=window_overlap,
+            progress=True,
+        )
+
+        out = outputs.detach().cpu()
+
+        if softmax:
+            out = F.softmax(out, dim=1)
+
+        if aniso_transform is not None:
+            out = aniso_transform(out)
+
+        if post_process:
+            out = np.array(out).astype(np.float32)
+            out = np.squeeze(out)
+            return out
+        else:
+            return out
+
     def inference(self, image_id: int = 0):
 
         try:
@@ -707,19 +715,22 @@ class Inference:
                         dims,
                         dims,
                     ],
+                    out_channels = self.config.model_info.out_channels
                 )
             elif model_name == "SwinUNetR":
 
-                out_channels = 1
-                if self.config.compute_instance_boundaries:
-                    out_channels = 3
+                # out_channels = 1
+                # if self.config.compute_instance_boundaries:
+                #     out_channels = 3
                 model = model_class.get_net(
                     img_size=[dims, dims, dims],
                     use_checkpoint=False,
-                    out_channels=out_channels,
+                    out_channels= self.config.model_info.out_channels,
                 )
             else:
-                model = model_class.get_net()
+                model = model_class.get_net(
+                    out_channels=self.config.model_info.out_channels
+                )
             model = model.to(self.config.device)
 
             self.log_parameters()
@@ -758,17 +769,22 @@ class Inference:
 
                 image = input_image.type(torch.FloatTensor)
                 self.log("Saving original image...")
+                logger.debug(f"Image shape : {image.shape}")
                 self.save_image(
                     "original_volume", input_image.numpy(), self.config.results_path
                 )
 
                 self.log("Predicting...")
+
+                use_softmax = (self.config.model_info.out_channels > 1)
+
                 out = self.model_output(
                     image,
                     model,
                     EnsureType(),
-                    # post_process=True,
-                    # aniso_transform=self.aniso_transform,
+                    softmax=use_softmax,
+                    post_process=True,
+                    aniso_transform=self.aniso_transform,
                 )
 
                 self.log("Saving prediction...")
@@ -784,14 +800,16 @@ class Inference:
                     folder="semantic_labels",
                 )
 
+            logger.info(
+                f" Output max {out.max()}, output min {out.min()},"
+                f" output mean {out.mean()}, output median {np.median(out)}"
+            )
+            logger.info(f" Output shape: {out.shape}")
+
             if self.config.compute_instance_boundaries:
                 out = F.softmax(out, dim=1)
                 out = np.array(out)  # .astype(np.float32)
-                logger.info(
-                    f" Output max {out.max()}, output min {out.min()},"
-                    f" output mean {out.mean()}, output median {np.median(out)}"
-                )
-                logger.info(f" Output shape: {out.shape}")
+
                 if self.config.keep_boundary_predictions:
                     out = out[:, 1:, :, :, :]
                 else:
@@ -819,7 +837,7 @@ class Inference:
                 logger.info(f" Output shape: {out.shape}")
                 out = np.squeeze(out)
                 logger.info(f" Output shape: {out.shape}")
-                out = np.transpose(out, (2, 1, 0))
+                out = np.transpose(out, (0, 3, 2, 1))
 
             if self.config.run_semantic_evaluation:
                 from evaluate_semantic import run_evaluation
