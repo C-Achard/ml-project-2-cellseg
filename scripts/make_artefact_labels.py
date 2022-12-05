@@ -199,7 +199,7 @@ def create_artefact_labels(
         labels,
         threshold_artefact_brightness_percent,
         threshold_artefact_size_percent,
-        contrast_power=20,
+        contrast_power=contrast_power,
         label_value=2,
         do_multi_label=False,
     )
