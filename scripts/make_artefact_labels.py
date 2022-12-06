@@ -62,6 +62,7 @@ def make_artefact_labels(
     contrast_power=20,
     label_value=2,
     do_multi_label=False,
+    remove_true_labels=True,
 ):
     """Detect pseudo nucleus.
     Parameters
@@ -76,7 +77,12 @@ def make_artefact_labels(
         Threshold for artefact size, if the artefcact is smaller than this percentage of the neurons it will be removed.
     contrast_power : int, optional
         Power for contrast enhancement.
-
+    label_value : int, optional
+        Value to use for the label image.
+    do_multi_label : bool, optional
+        If True, each different artefact will be labelled as a different value.
+    remove_true_labels : bool, optional
+        If True, the true labels will be removed from the artefacts.
     Returns
     -------
     ndarray
@@ -106,16 +112,17 @@ def make_artefact_labels(
     artefacts = binary_watershed(
         image_contrasted, thres_seeding=0.9, thres_small=30, thres_objects=0.4
     )
+    
+    if remove_true_labels:
+        # evaluate where the artefacts are connected to the neurons
+        # map the artefacts label to the neurons label
+        map_labels_existing, new_labels = map_labels(labels, artefacts)
 
-    # evaluate where the artefacts are connected to the neurons
-    # map the artefacts label to the neurons label
-    map_labels_existing, new_labels = map_labels(labels, artefacts)
-
-    # remove the artefacts that are connected to the neurons
-    for i in map_labels_existing:
-        artefacts[artefacts == i[0]] = 0
-    # remove all the pixels of the neurons from the artefacts
-    artefacts = np.where(labels > 0, 0, artefacts)
+        # remove the artefacts that are connected to the neurons
+        for i in map_labels_existing:
+            artefacts[artefacts == i[0]] = 0
+        # remove all the pixels of the neurons from the artefacts
+        artefacts = np.where(labels > 0, 0, artefacts)
 
     # remove the artefacts that are too small
     # calculate the percentile of the size of the neurons
