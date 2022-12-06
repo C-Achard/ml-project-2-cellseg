@@ -14,16 +14,21 @@ def split_image_n(n, image_path):
     :return: list of images
     """
     image = imread(image_path)
-    image = image[:500, :500, :500]
-    splits = np.array_split(image, n, axis=0)
-    for i, split in enumerate(splits):
-        name = Path(image_path).parents[0] / f"crop_{i}.tif"
-        print(f"Saving to {name}")
-        imwrite(name, split, bigtiff=True)
+    print(f"Shape : {image.shape}")
+    image = image[:500, :, :]
+    name = Path(image_path).parents[0] / f"crop.tif"
+    print(f"Saving to {name}")
+    image.compute()
+    imwrite(name, image)
+    # splits = np.array_split(image, n, axis=0)
+    # for i, split in enumerate(splits):
+    #     name = Path(image_path).parents[0] / f"crop_{i}.tif"
+    #     print(f"Saving to {name}")
+    #     imwrite(name, split, bigtiff=True)
 
 if __name__ ==  '__main__' :
     # Load image
-    image_path =  'C:/Users/Cyril/Desktop/Proj_bachelor/data/visual_tif/volumes/images.tif'
+    image_path = 'E:/BRAIN_DATA/ExpC_TPH2_whole_brain.tif'
     split_image_n(10, image_path)
 
 

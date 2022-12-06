@@ -174,6 +174,7 @@ class TrainerConfig:
         self.validation_volume_directory = ()
         self.validation_label_directory = ()
 
+        self.out_channels = 1
         self.max_epochs = 50
         self.learning_rate = 3e-4
         self.val_interval = 1

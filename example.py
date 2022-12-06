@@ -833,7 +833,10 @@ class Inference:
                 logger.info(f" Output shape: {out.shape}")
                 out = np.squeeze(out)
                 logger.info(f" Output shape: {out.shape}")
-                out = np.transpose(out, (0, 3, 2, 1))
+                if self.config.model_info.out_channels >1 :
+                    out = np.transpose(out, (0, 3, 2, 1))
+                else:
+                    out =np.transpose(out, (0, 2, 1))
 
             if self.config.run_semantic_evaluation:
                 from evaluate_semantic import run_evaluation

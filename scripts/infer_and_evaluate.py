@@ -19,11 +19,11 @@ if __name__ == "__main__":
     pred_conf = InferenceWorkerConfig()
     pred_conf.model_info.name = "SegResNet"
     pred_conf.weights_config.path = str(
-        repo_path / f"results/{pred_conf.model_info.name}_best_metric.pth"
+        repo_path / f"results_one_channel/{pred_conf.model_info.name}_best_metric.pth"
     )
 
     pred_conf.model_info.model_input_size = 64
-    pred_conf.model_info.out_channels = 2
+    pred_conf.model_info.out_channels = 1
     pred_conf.post_process_config.thresholding.enabled = True
     pred_conf.post_process_config.thresholding.threshold_value = 0.5
 
@@ -44,9 +44,10 @@ if __name__ == "__main__":
     from utils import dice_metric, normalize
 
     logger.debug(f"Result shape : {result.shape}")
-
-    logger.info(f"DICE METRIC : {dice_metric(ground_truth, result[1])}")
-
+    if pred_conf.model_info.out_channels > 1 :
+        logger.info(f"DICE METRIC : {dice_metric(ground_truth, result[1])}")
+    else:
+        logger.info(f"DICE METRIC : {dice_metric(ground_truth, result)}")
     from napari.viewer import Viewer
 
     viewer = Viewer()

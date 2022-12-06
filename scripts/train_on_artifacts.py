@@ -11,6 +11,9 @@ from monai.data import (
     decollate_batch,
     pad_list_data_collate,
 )
+from monai.losses import (
+    DiceLoss,
+)
 from monai.metrics import DiceMetric
 from monai.transforms import (
     EnsureChannelFirstd,
@@ -80,7 +83,14 @@ class Trainer:
         self.val_files = []
         self.compute_instance_boundaries = self.config.compute_instance_boundaries
         self.deterministic = self.config.deterministic
-        self.loss_function = get_loss(self.config.loss_function_name, self.device)
+
+        if self.config.out_channels > 1 :
+            logger.info("Using SOFTMAX loss")
+            self.loss_function = DiceLoss(softmax=True, to_onehot_y=True)
+        else:
+            logger.info("Using SIGMOID loss")
+            self.loss_function = DiceLoss(sigmoid=True)
+        # self.loss_function = get_loss(self.config.loss_function_name, self.device)
 
     def log_parameters(self):
 
@@ -97,6 +107,7 @@ class Trainer:
             logger.info(f"Seed is 42")
 
         logger.info(f"Training for {self.max_epochs} epochs")
+        logger.info(f"Number of output channels : {self.config.out_channels}")
         logger.info(f"Loss function is : {str(self.loss_function)}")
         logger.info(f"Validation is performed every {self.val_interval} epochs")
         logger.info(f"Batch size is {self.batch_size}")
@@ -355,12 +366,12 @@ class Trainer:
                     batch_data["label"].to(self.device),
                 )
                 optimizer.zero_grad()
-                probabilities = self.model_class.get_output(model, inputs)
+                logits = self.model_class.get_output(model, inputs)
 
                 # logger.debug(f"Output shape : {probabilities.shape}")
                 # logger.debug(f"Label shape : {labels.shape}")
 
-                loss = self.loss_function(probabilities, labels)
+                loss = self.loss_function(logits, labels)
                 loss.backward()
                 optimizer.step()
 
@@ -852,7 +863,7 @@ if __name__ == "__main__":
     config = TrainerConfig()
     config.model_info.name = "SegResNet"
     # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
-    config.out_channels = 2
+
     config.val_interval = 2
 
     config.batch_size = 4
@@ -871,8 +882,10 @@ if __name__ == "__main__":
         repo_path / "dataset/somatomotor/artefact_neurons"
     )
 
-    config.results_path = str(repo_path / "results")
-    (repo_path / "results").mkdir(exist_ok=True)
+    config.out_channels = 2
+    save_folder = "results_multichannel"
+    config.results_path = str(repo_path / save_folder)
+    (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
     config.num_samples = 40
