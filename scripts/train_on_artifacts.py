@@ -36,6 +36,7 @@ from predict import Inference
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 
+
 class Trainer:
     def __init__(
         self,
@@ -127,7 +128,7 @@ class Trainer:
             first_volume = LoadImaged(keys=["image"])(self.train_data_dict[0])
             first_volume_shape = first_volume["image"].shape
 
-        if self.config.model_name == "SegResNet":
+        if self.config.model_info.name == "SegResNet":
             if self.sampling:
                 size = self.sample_size
             else:
@@ -139,7 +140,7 @@ class Trainer:
                 dropout_prob=0.3,
             )
         else:
-            model = self.model_class.get_net(out_channels = self.config.out_channels)
+            model = self.model_class.get_net(out_channels=self.config.out_channels)
 
         model = torch.nn.DataParallel(model).to(self.device)
 
@@ -237,7 +238,9 @@ class Trainer:
             load_single_images = Compose(
                 [
                     LoadImaged(keys=["image", "label"]),
-                    EnsureChannelFirstd(keys=["image", "label"], channel_dim=config.out_channels),
+                    EnsureChannelFirstd(
+                        keys=["image", "label"], channel_dim=config.out_channels
+                    ),
                     Orientationd(keys=["image", "label"], axcodes="PLI"),
                     SpatialPadd(
                         keys=["image", "label"],
@@ -354,8 +357,8 @@ class Trainer:
                 optimizer.zero_grad()
                 probabilities = self.model_class.get_output(model, inputs)
 
-                logger.debug(f"Output shape : {probabilities.shape}")
-                logger.debug(f"Label shape : {labels.shape}")
+                # logger.debug(f"Output shape : {probabilities.shape}")
+                # logger.debug(f"Label shape : {labels.shape}")
 
                 loss = self.loss_function(probabilities, labels)
                 loss.backward()
@@ -433,7 +436,7 @@ class Trainer:
                         best_metric_epoch = epoch + 1
                         logger.info("Saving best metric model")
 
-                        weights_filename = f"{self.config.model_name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
+                        weights_filename = f"{self.config.model_info.name}_best_metric.pth"  # f"_epoch_{epoch + 1}
 
                         # DataParallel wrappers keep raw model object in .module attribute
                         raw_model = model.module if hasattr(model, "module") else model
@@ -712,7 +715,7 @@ class Inference:
                         dims,
                         dims,
                     ],
-                    out_channels = self.config.out_channels,
+                    out_channels=self.config.out_channels,
                 )
             elif model_name == "SwinUNetR":
 
@@ -806,9 +809,9 @@ class Inference:
                     out = (
                         out > self.config.post_process_config.threshold.threshold_value
                     )
-                logger.info(f" Output shape: {out.shape}")
+                logger.debug(f" Output shape: {out.shape}")
                 out = np.squeeze(out)
-                logger.info(f" Output shape: {out.shape}")
+                logger.debug(f" Output shape: {out.shape}")
                 if self.config.keep_boundary_predictions:
                     out = np.transpose(out, (0, 3, 2, 1))
                 else:
@@ -847,27 +850,33 @@ if __name__ == "__main__":
     logger.info("Starting training")
 
     config = TrainerConfig()
-    config.validation_percent = None
+    config.model_info.name = "SegResNet"
+    # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
     config.out_channels = 2
+    config.val_interval = 2
 
-    config.batch_size = 1
+    config.batch_size = 4
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
 
-    config.train_volume_directory = str(repo_path / "dataset/cropped_visual/train/volumes")
-    config.train_label_directory = str(repo_path / "dataset/cropped_visual/train/artefact_neurons")
+    config.train_volume_directory = str(repo_path / "dataset/visual_tif/volumes")
+    config.train_label_directory = str(
+        repo_path / "dataset/visual_tif/artefact_neurons"
+    )
 
     # use these if not using validation_percent
-    config.validation_volume_directory = str(repo_path / "dataset/cropped_visual/val/volumes")
-    config.validation_label_directory = str(repo_path / "dataset/cropped_visual/val/artefact_neurons")
+    config.validation_volume_directory = str(repo_path / "dataset/somatomotor/volumes")
+    config.validation_label_directory = str(
+        repo_path / "dataset/somatomotor/artefact_neurons"
+    )
 
     config.results_path = str(repo_path / "results")
     (repo_path / "results").mkdir(exist_ok=True)
 
     config.sampling = True
-    config.num_samples = 1
-    config.max_epochs = 5
+    config.num_samples = 40
+    config.max_epochs = 20
 
     trainer = Trainer(config)
     trainer.log_parameters()
