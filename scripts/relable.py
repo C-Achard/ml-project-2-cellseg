@@ -10,14 +10,12 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from post_processing import binary_watershed
 import time
-import threading
 import warnings
-import io
 from napari.qt.threading import thread_worker
 from tqdm import tqdm
 
 
-def relable(label, save_path, go_fast=True):
+def relable(label, save_path, go_fast=False):
     """relable the image labelled with different label for each neuron and save it in the save_path location
     Parameters
     ----------
@@ -156,5 +154,5 @@ if __name__ == "__main__":
     )
 
     label = imread(file_path)
-    map = relable(label, file_path[:-4] + "_relable.tif", go_fast=False)
+    map = relable(label, file_path[:-4] + "_relable.tif")
     visualize_map(map, file_path, file_path[:-4] + "_relable.tif", delay=0.3)
