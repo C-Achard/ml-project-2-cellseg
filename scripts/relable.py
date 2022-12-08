@@ -27,7 +27,6 @@ def relable(label, save_path, go_fast=False):
     value_label = 0
     new_labels = np.zeros_like(label)
     map_labels_existing = []
-    max_label = np.max(label)
     unique_label = np.unique(label)
     for i_label in tqdm(range(len(unique_label)), desc="relabeling", ncols=100):
         i = unique_label[i_label]
