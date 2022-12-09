@@ -54,10 +54,18 @@ class UNet(nn.Module):
         c2 = self.conv2(nn.MaxPool3d(2)(c1))
         c3 = self.conv3(nn.MaxPool3d(2)(c2))
         x = self.bot(nn.MaxPool3d(2)(c3))
-        x = self.deconv1(torch.cat([c3, nn.ConvTranspose3d(1024, 512, 2, stride=2)(x)], dim=1))
-        x = self.deconv2(torch.cat([c2, nn.ConvTranspose3d(512, 256, 2, stride=2)(x)], dim=1))
-        x = self.deconv3(torch.cat([c1, nn.ConvTranspose3d(256, 128, 2, stride=2)(x)], dim=1))
-        x = self.out_b(torch.cat([in_b, nn.ConvTranspose3d(128, 64, 2, stride=2)(x)], dim=1))
+        x = self.deconv1(
+            torch.cat([c3, nn.ConvTranspose3d(1024, 512, 2, stride=2)(x)], dim=1)
+        )
+        x = self.deconv2(
+            torch.cat([c2, nn.ConvTranspose3d(512, 256, 2, stride=2)(x)], dim=1)
+        )
+        x = self.deconv3(
+            torch.cat([c1, nn.ConvTranspose3d(256, 128, 2, stride=2)(x)], dim=1)
+        )
+        x = self.out_b(
+            torch.cat([in_b, nn.ConvTranspose3d(128, 64, 2, stride=2)(x)], dim=1)
+        )
         return x
 
 
@@ -74,7 +82,6 @@ class InBlock(nn.Module):
             nn.ReLU(),
             nn.BatchNorm3d(out_channels),
         )
-
 
     def forward(self, x):
         """Forward pass of the input block."""
