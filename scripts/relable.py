@@ -53,12 +53,11 @@ def relable_non_unique_i(label, save_path, go_fast=False):
         new_labels += new_label
         value_label += to_add
 
-
-
     imwrite(save_path, new_labels)
     return map_labels_existing
 
-def add_label(old_label,artefact,new_label_path,i_labels_to_add):
+
+def add_label(old_label, artefact, new_label_path, i_labels_to_add):
     """add the label to the label image
     Parameters
     ----------
@@ -71,14 +70,20 @@ def add_label(old_label,artefact,new_label_path,i_labels_to_add):
     """
     new_label = old_label.copy()
     max_label = np.max(old_label)
-    for i,i_label in enumerate(i_labels_to_add):
-        new_label[artefact == i_label] = i+max_label+1
+    for i, i_label in enumerate(i_labels_to_add):
+        new_label[artefact == i_label] = i + max_label + 1
     imwrite(new_label_path, new_label)
-returns=[]
+
+
+returns = []
+
+
 def ask_labels(unique_artefact):
     global returns
-    returns=[]
-    i_labels_to_add_tmp = input("Which label do you want to add ? (separated by a comma):")
+    returns = []
+    i_labels_to_add_tmp = input(
+        "Which label do you want to add ? (separated by a comma):"
+    )
     i_labels_to_add_tmp = [int(i) for i in i_labels_to_add_tmp.split(",")]
     for i in i_labels_to_add_tmp:
         if i == 0:
@@ -87,7 +92,9 @@ def ask_labels(unique_artefact):
             i_labels_to_add_tmp.remove(i)
     # test if all index are negative
     if all(i < 0 for i in i_labels_to_add_tmp):
-        print("all labels are negative-> will add all the labels except the one you gave")
+        print(
+            "all labels are negative-> will add all the labels except the one you gave"
+        )
         i_labels_to_add = list(unique_artefact)
         for i in i_labels_to_add_tmp:
             if np.abs(i) in i_labels_to_add:
@@ -100,14 +107,19 @@ def ask_labels(unique_artefact):
         for i in i_labels_to_add_tmp:
             if i < 0:
                 i_labels_to_add_tmp.remove(i)
-                print("ignore the negative label", i," since not all the labels are negative")
+                print(
+                    "ignore the negative label",
+                    i,
+                    " since not all the labels are negative",
+                )
             if i not in unique_artefact:
                 print("the label", i, "is not in the label image")
                 i_labels_to_add_tmp.remove(i)
-            
-    returns=[i_labels_to_add_tmp]
 
-def relable(image_path,label_path, go_fast=False, check_for_unicity=True,delay=0.3):
+    returns = [i_labels_to_add_tmp]
+
+
+def relable(image_path, label_path, go_fast=False, check_for_unicity=True, delay=0.3):
     """relable the image labelled with different label for each neuron and save it in the save_path location
     Parameters
     ----------
@@ -121,54 +133,59 @@ def relable(image_path,label_path, go_fast=False, check_for_unicity=True,delay=0
     if check_for_unicity:
         # check if the label are unique
         new_label_path = label_path[:-4] + "_relable_unique.tif"
-        map_labels_existing = relable_non_unique_i(label, new_label_path, go_fast=go_fast)
-        print("visualize the relabled image in white the previous labels and in red the new labels")
-        visualize_map(map_labels_existing, label_path, new_label_path,delay=delay)
+        map_labels_existing = relable_non_unique_i(
+            label, new_label_path, go_fast=go_fast
+        )
+        print(
+            "visualize the relabled image in white the previous labels and in red the new labels"
+        )
+        visualize_map(map_labels_existing, label_path, new_label_path, delay=delay)
         label_path = new_label_path
-    #detect artefact
+    # detect artefact
     print("detection of artefact (in process)")
-    image=imread(image_path)
-    artefact=make_artefact_labels.make_artefact_labels(image,imread(label_path),do_multi_label=True)
+    image = imread(image_path)
+    artefact = make_artefact_labels.make_artefact_labels(
+        image, imread(label_path), do_multi_label=True
+    )
     print("detection of artefact (done)")
-    #ask the user if the artefact are not neurons
-    i_labels_to_add=[]
-    loop=True
-    unique_artefact=list(np.unique(artefact))
+    # ask the user if the artefact are not neurons
+    i_labels_to_add = []
+    loop = True
+    unique_artefact = list(np.unique(artefact))
     while loop:
-        #visualize the artefact and ask the user which label to add to the label image
-        t=threading.Thread(target=ask_labels,args=(unique_artefact,))
+        # visualize the artefact and ask the user which label to add to the label image
+        t = threading.Thread(target=ask_labels, args=(unique_artefact,))
         t.start()
-        artefact_copy=np.where(np.isin(artefact,i_labels_to_add),0,artefact)
-        viewer=napari.view_image(image)
+        artefact_copy = np.where(np.isin(artefact, i_labels_to_add), 0, artefact)
+        viewer = napari.view_image(image)
         viewer.add_labels(artefact_copy)
         napari.run()
         t.join()
-        i_labels_to_add_tmp=returns[0]
-        #check if the selected labels are neurones
+        i_labels_to_add_tmp = returns[0]
+        # check if the selected labels are neurones
         for i in i_labels_to_add:
             if i not in i_labels_to_add_tmp:
                 i_labels_to_add_tmp.append(i)
-        artefact_copy=np.where(np.isin(artefact,i_labels_to_add_tmp),artefact,0)
+        artefact_copy = np.where(np.isin(artefact, i_labels_to_add_tmp), artefact, 0)
         print("these labels will be added")
-        viewer=napari.view_image(image)
+        viewer = napari.view_image(image)
         viewer.add_labels(artefact_copy)
         napari.run()
         revert = input("Do you want to revert? (y/n)")
         if revert != "y":
-            i_labels_to_add=i_labels_to_add_tmp
+            i_labels_to_add = i_labels_to_add_tmp
             for i in i_labels_to_add:
                 if i in unique_artefact:
                     unique_artefact.remove(i)
-        loop=input("Do you want to add more labels? (y/n)") == "y"
-    #add the label to the label image
+        loop = input("Do you want to add more labels? (y/n)") == "y"
+    # add the label to the label image
     new_label_path = initial_label_path[:-4] + "_new_label.tif"
-    add_label(imread(label_path),artefact,new_label_path,i_labels_to_add)
-    #store the artefact remaining
+    add_label(imread(label_path), artefact, new_label_path, i_labels_to_add)
+    # store the artefact remaining
     new_artefact_path = initial_label_path[:-4] + "_artefact.tif"
-    artefact=np.where(np.isin(artefact,i_labels_to_add),0,artefact)
+    artefact = np.where(np.isin(artefact, i_labels_to_add), 0, artefact)
     imwrite(new_artefact_path, artefact)
 
-        
 
 def modify_viewer(old_label, new_label, args):
     """modify the viewer to show the relabeling
@@ -264,6 +281,8 @@ if __name__ == "__main__":
     file_path = os.path.join(
         repo_path, "dataset", "visual_tif", "labels", "testing_im.tif"
     )
-    image_path = os.path.join(repo_path, "dataset", "visual_tif", "volumes", "images.tif")
+    image_path = os.path.join(
+        repo_path, "dataset", "visual_tif", "volumes", "images.tif"
+    )
 
-    relable(image_path,file_path, check_for_unicity=True, go_fast=False)
+    relable(image_path, file_path, check_for_unicity=True, go_fast=False)
