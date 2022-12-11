@@ -187,7 +187,7 @@ class TrainerConfig:
         self.do_augmentation = True
         self.deterministic = True
         self.grad_norm_clip = 1.0
-        self.weight_decay = 0.00001
+        self.weight_decay = 1e-5
         self.compute_instance_boundaries = (
             False  # Change class loss weights in utils.get_loss TODO: choose in config
         )

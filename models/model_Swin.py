@@ -1,5 +1,6 @@
 from monai.networks.nets import SwinUNETR
 from torch import sigmoid
+from torch import softmax
 
 
 def get_weights_file():
@@ -13,13 +14,15 @@ def get_net(img_size, use_checkpoint=True, out_channels=1):
         out_channels=out_channels,
         feature_size=48,
         use_checkpoint=use_checkpoint,
+        # drop_rate=0.3,
+        # spatial_dims=3,
     )
 
 
 def get_output(model, input):
     out = model(input)
-
-    return sigmoid(out)
+    # out = sigmoid(out)
+    return out
 
 
 def get_validation(model, val_inputs):

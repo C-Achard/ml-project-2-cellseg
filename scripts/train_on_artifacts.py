@@ -16,6 +16,7 @@ from monai.losses import (
 )
 from monai.metrics import DiceMetric
 from monai.transforms import (
+    Activations,
     EnsureChannelFirstd,
     EnsureTyped,
     LoadImaged,
@@ -87,6 +88,7 @@ class Trainer:
         if self.config.out_channels > 1 :
             logger.info("Using SOFTMAX loss")
             self.loss_function = DiceLoss(softmax=True, to_onehot_y=True)
+            # self.loss_function = DiceLoss(to_onehot_y=True)
         else:
             logger.info("Using SIGMOID loss")
             self.loss_function = DiceLoss(sigmoid=True)
@@ -149,6 +151,17 @@ class Trainer:
                 input_image_size=get_padding_dim(size),
                 out_channels=self.config.out_channels,
                 dropout_prob=0.3,
+            )
+        elif self.config.model_info.name == "SwinUNetR":
+
+            if self.sampling:
+                size = self.sample_size
+            else:
+                size = first_volume_shape
+            model = self.model_class.get_net(
+                img_size=get_padding_dim(size),
+                use_checkpoint=False,
+                out_channels=self.config.out_channels,
             )
         else:
             model = self.model_class.get_net(out_channels=self.config.out_channels)
@@ -297,14 +310,16 @@ class Trainer:
         optimizer = torch.optim.AdamW(
             model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
         )
-        scheduler = ReduceLROnPlateau(
-            optimizer, "max", patience=10, factor=0.5, verbose=True
-        )
+        # scheduler = ReduceLROnPlateau(
+        #     optimizer, "max", patience=10, factor=0.5, verbose=True
+        # )
+        # scheduler = torch.cuda.amp.GradScaler()
 
         dice_metric = DiceMetric(
             include_background=True, reduction="mean", get_not_nans=False
         )
         if self.compute_instance_boundaries:
+                # or self.config.out_channels > 1
             dice_metric_only_cells = DiceMetric(
                 include_background=True, reduction="mean", get_not_nans=False
             )
@@ -365,11 +380,25 @@ class Trainer:
                     batch_data["image"].to(self.device),
                     batch_data["label"].to(self.device),
                 )
+                # with torch.cuda.amp.autocast():
+                #     logits = self.model_class.get_output(model, inputs)
+                #     loss = self.loss_function(logits, labels)
+                # scheduler.scale(loss).backward()
+                # scheduler.unscale_(optimizer)
+                # scheduler.step(optimizer)
+                # scheduler.update()
+                # optimizer.zero_grad()
+
                 optimizer.zero_grad()
                 logits = self.model_class.get_output(model, inputs)
 
-                # logger.debug(f"Output shape : {probabilities.shape}")
+                # logger.debug(f"Output shape : {logits.shape}")
                 # logger.debug(f"Label shape : {labels.shape}")
+                # out = logits.detach().cpu()
+                # logger.debug(
+                #     f" Output max {out.max()}, output min {out.min()},"
+                #     f" output mean {out.mean()}, output median {np.median(out)}"
+                # )
 
                 loss = self.loss_function(logits, labels)
                 loss.backward()
@@ -404,11 +433,14 @@ class Trainer:
                         labs = decollate_batch(val_labels)
 
                         if self.compute_instance_boundaries:
-                            post_pred = AsDiscrete(argmax=True, to_onehot=3)
-                            post_label = AsDiscrete(to_onehot=3)
+                            post_pred = AsDiscrete(argmax=True, to_onehot=3, n_classes=3)
+                            post_label = AsDiscrete(to_onehot=3, n_classes=3)
                         elif self.config.out_channels > 1:
-                            post_pred = AsDiscrete(argmax=True, to_onehot=2)
-                            post_label = AsDiscrete(to_onehot=2)
+                            post_pred = Compose([
+                                # Activations(softmax=True),
+                                AsDiscrete(argmax=True, to_onehot=2, n_classes=2)
+                            ])
+                            post_label = AsDiscrete(to_onehot=2, n_classes=2)
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
@@ -419,6 +451,7 @@ class Trainer:
                         dice_metric(y_pred=val_outputs, y=val_labels)
 
                         if self.compute_instance_boundaries:
+                            # or self.config.out_channels > 1:
                             val_labels = [
                                 val_label[1, :, :, :] for val_label in val_labels
                             ]
@@ -428,21 +461,23 @@ class Trainer:
                             dice_metric_only_cells(y_pred=val_outputs, y=val_labels)
 
                     metric = dice_metric.aggregate().detach().item()
-                    scheduler.step(metric)
+                    # scheduler.step(metric)
                     # wandb.log({"dice metric validation": metric})
                     dice_metric.reset()
 
                     if self.compute_instance_boundaries:
+                            # or self.config.out_channels > 1:
                         metric_cells = (
                             dice_metric_only_cells.aggregate().detach().item()
                         )
-                        scheduler.step(metric_cells)
+                        # scheduler.step(metric_cells)
                         # wandb.log({"dice metric only cells validation": metric_cells})
                         dice_metric_only_cells.reset()
+                        logger.info(f"Dice mtric cells only : {metric_cells}")
 
                     val_metric_values.append(metric)
 
-                    if metric > best_metric:
+                    if metric >= best_metric:
                         best_metric = metric
                         best_metric_epoch = epoch + 1
                         logger.info("Saving best metric model")
@@ -861,35 +896,41 @@ if __name__ == "__main__":
     logger.info("Starting training")
 
     config = TrainerConfig()
-    config.model_info.name = "SegResNet"
+    # config.model_info.name = "SwinUNetR"
+    config.model_info.name = "VNet"
     # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
 
     config.val_interval = 2
 
-    config.batch_size = 4
+    config.batch_size = 2
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
 
     config.train_volume_directory = str(repo_path / "dataset/visual_tif/volumes")
     config.train_label_directory = str(
-        repo_path / "dataset/visual_tif/artefact_neurons"
+        repo_path / "dataset/visual_tif/labels/labels_sem"
+        # repo_path / "dataset/visual_tif/artefact_neurons"
     )
 
     # use these if not using validation_percent
-    config.validation_volume_directory = str(repo_path / "dataset/somatomotor/volumes")
+    config.validation_volume_directory = str(repo_path / "dataset/somatomotor/volumes") # str(repo_path / "dataset/visual_tif/volumes")
     config.validation_label_directory = str(
-        repo_path / "dataset/somatomotor/artefact_neurons"
+        # repo_path / "dataset/somatomotor/artefact_neurons"
+        repo_path / "dataset/somatomotor/lab_sem"
     )
+        # repo_path / "dataset/visual_tif/artefact_neurons"
 
-    config.out_channels = 2
-    save_folder = "results_multichannel"
+    config.out_channels = 1
+    config.learning_rate = 1e-4
+
+    save_folder = "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
     config.num_samples = 40
-    config.max_epochs = 20
+    config.max_epochs = 5
 
     trainer = Trainer(config)
     trainer.log_parameters()
