@@ -452,9 +452,9 @@ class Trainer:
                         elif self.config.out_channels > 1:
                             post_pred = Compose([
                                 # Activations(softmax=True),
-                                AsDiscrete(argmax=True, to_onehot=2) #, n_classes=2)
+                                AsDiscrete(argmax=True, to_onehot=self.config.out_channels) #, n_classes=2)
                             ])
-                            post_label = AsDiscrete(to_onehot=2) # , n_classes=2)
+                            post_label = AsDiscrete(to_onehot=self.config.out_channels) # , n_classes=2)
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
