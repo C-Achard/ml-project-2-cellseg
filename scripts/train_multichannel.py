@@ -87,7 +87,7 @@ class Trainer:
         self.compute_instance_boundaries = self.config.compute_instance_boundaries
         self.deterministic = self.config.deterministic
 
-        if self.config.out_channels > 1 :
+        if self.config.out_channels > 1:
             logger.info("Using SOFTMAX loss")
             self.loss_function = DiceLoss(softmax=True, to_onehot_y=True)
             # self.loss_function = DiceLoss(to_onehot_y=True)
@@ -186,9 +186,10 @@ class Trainer:
         if self.sampling:
             sample_loader = Compose(
                 [
-                    LoadImaged(keys=["image", "label"],
-                               # ensure_channel_first=True, image_only=True, simple_keys=True
-                               ),
+                    LoadImaged(
+                        keys=["image", "label"],
+                        # ensure_channel_first=True, image_only=True, simple_keys=True
+                    ),
                     # ToTensord(keys=["image", "label"]),
                     EnsureChannelFirstd(keys=["image", "label"]),
                     RandSpatialCropSamplesd(
@@ -266,7 +267,12 @@ class Trainer:
         else:
             load_single_images = Compose(
                 [
-                    LoadImaged(keys=["image", "label"],reader=tifffile.imread, image_only=True, simple_keys=True),
+                    LoadImaged(
+                        keys=["image", "label"],
+                        reader=tifffile.imread,
+                        image_only=True,
+                        simple_keys=True,
+                    ),
                     EnsureChannelFirstd(
                         keys=["image", "label"], channel_dim=config.out_channels
                     ),
@@ -303,29 +309,28 @@ class Trainer:
                 print(check_data.keys())
                 image, label = (check_data["image"], check_data["label"])
 
-
                 view.add_image(image.numpy())
                 view.add_labels(label.numpy().astype(np.int8))
             napari.run()
-                # image, label = (check_data["image"][0][0], check_data["label"][0][0])
-                # print(f"image shape: {image.shape}, label shape: {label.shape}")
-                # plt.figure("check", (12, 6))
-                # plt.subplot(1, 2, 1)
-                # plt.title("image")6
-                # plt.imshow(image[:, :, 40], cmap="gray")
-                # plt.subplot(1, 2, 2)
-                # plt.title("label")
-                # plt.imshow(label[:, :, 40])
-                # # plt.savefig('/home/maximevidal/Documents/cell-segmentation-models/results/imageinput.png')
-                # plt.show()
+            # image, label = (check_data["image"][0][0], check_data["label"][0][0])
+            # print(f"image shape: {image.shape}, label shape: {label.shape}")
+            # plt.figure("check", (12, 6))
+            # plt.subplot(1, 2, 1)
+            # plt.title("image")6
+            # plt.imshow(image[:, :, 40], cmap="gray")
+            # plt.subplot(1, 2, 2)
+            # plt.title("label")
+            # plt.imshow(label[:, :, 40])
+            # # plt.savefig('/home/maximevidal/Documents/cell-segmentation-models/results/imageinput.png')
+            # plt.show()
 
         logger.info("Creating optimizer")
         optimizer = torch.optim.AdamW(
             model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
         )
-        # scheduler = ReduceLROnPlateau(
-        #     optimizer, "max", patience=10, factor=0.5, verbose=True
-        # )
+        scheduler = ReduceLROnPlateau(
+            optimizer, "max", patience=10, factor=0.5, verbose=True
+        )
         # scheduler = torch.cuda.amp.GradScaler()
 
         dice_metric = DiceMetric(
@@ -447,14 +452,22 @@ class Trainer:
                         labs = decollate_batch(val_labels)
 
                         if self.compute_instance_boundaries:
-                            post_pred = AsDiscrete(argmax=True, to_onehot=3) #, n_classes=3)
-                            post_label = AsDiscrete(to_onehot=3) #, n_classes=3)
+                            post_pred = AsDiscrete(
+                                argmax=True, to_onehot=3
+                            )  # , n_classes=3)
+                            post_label = AsDiscrete(to_onehot=3)  # , n_classes=3)
                         elif self.config.out_channels > 1:
-                            post_pred = Compose([
-                                # Activations(softmax=True),
-                                AsDiscrete(argmax=True, to_onehot=self.config.out_channels) #, n_classes=2)
-                            ])
-                            post_label = AsDiscrete(to_onehot=self.config.out_channels) # , n_classes=2)
+                            post_pred = Compose(
+                                [
+                                    # Activations(softmax=True),
+                                    AsDiscrete(
+                                        argmax=True, to_onehot=self.config.out_channels
+                                    )  # , n_classes=2)
+                                ]
+                            )
+                            post_label = AsDiscrete(
+                                to_onehot=self.config.out_channels
+                            )  # , n_classes=2)
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
@@ -475,12 +488,12 @@ class Trainer:
                             dice_metric_only_cells(y_pred=val_outputs, y=val_labels)
 
                     metric = dice_metric.aggregate().detach().item()
-                    # scheduler.step(metric)
+                    scheduler.step(metric)
                     # wandb.log({"dice metric validation": metric})
                     dice_metric.reset()
 
                     if self.compute_instance_boundaries:
-                            # or self.config.out_channels > 1:
+                        # or self.config.out_channels > 1:
                         metric_cells = (
                             dice_metric_only_cells.aggregate().detach().item()
                         )
@@ -924,38 +937,42 @@ if __name__ == "__main__":
 
     config.train_volume_directory = str(
         # repo_path / "dataset/visual_tif/volumes"
-        repo_path / "dataset/axons/training/custom-training/volumes"
+        repo_path
+        / "dataset/axons/training/custom-training/volumes"
     )
     config.train_label_directory = str(
         # repo_path / "dataset/visual_tif/labels/labels_sem"
         # repo_path / "dataset/visual_tif/artefact_neurons"
-        repo_path / "dataset/axons/training/custom-training/labels"
+        repo_path
+        / "dataset/axons/training/custom-training/labels"
     )
 
     # use these if not using validation_percent
     config.validation_volume_directory = str(
         # repo_path / "dataset/somatomotor/volumes"
-        repo_path / "dataset/axons/validation/custom-validation/volumes"
+        repo_path
+        / "dataset/axons/validation/custom-validation/volumes"
         # str(repo_path / "dataset/visual_tif/volumes")
     )
     config.validation_label_directory = str(
-        repo_path / "dataset/axons/validation/custom-validation/labels"
+        repo_path
+        / "dataset/axons/validation/custom-validation/labels"
         # repo_path / "dataset/somatomotor/artefact_neurons"
         # repo_path / "dataset/somatomotor/lab_sem"
     )
-        # repo_path / "dataset/visual_tif/artefact_neurons"
+    # repo_path / "dataset/visual_tif/artefact_neurons"
 
     config.out_channels = 3
-    config.learning_rate = 1e-4
+    config.learning_rate = 1e-3
     # config.plot_training_inputs = True
 
-    save_folder = "results_multichannel" # "results_one_channel"
+    save_folder = "results_multichannel"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
     config.num_samples = 5
-    config.max_epochs = 6
+    config.max_epochs = 20
 
     trainer = Trainer(config)
     trainer.log_parameters()
