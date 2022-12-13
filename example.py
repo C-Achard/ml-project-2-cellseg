@@ -679,8 +679,10 @@ class Inference:
 
         out = outputs.detach().cpu()
 
-        if softmax:
-            out = F.softmax(out, dim=1)
+        # if softmax:
+        #     out = F.softmax(out, dim=1)
+        # else:
+        #     out = F.sigmoid(out)
 
         if aniso_transform is not None:
             out = aniso_transform(out)
@@ -783,71 +785,72 @@ class Inference:
                     aniso_transform=self.aniso_transform,
                 )
 
+                if self.config.compute_instance_boundaries:
+                    out = F.softmax(out, dim=1)
+                    out = np.array(out)  # .astype(np.float32)
+
+                    if self.config.keep_boundary_predictions:
+                        out = out[:, 1:, :, :, :]
+                    else:
+                        out = out[:, 1, :, :, :]
+                    if self.config.post_process_config.thresholding.enabled:
+                        out = (
+                            out > self.config.post_process_config.thresholding.threshold_value
+                        )
+                    logger.info(f" Output shape: {out.shape}")
+                    out = np.squeeze(out)
+                    logger.info(f" Output shape: {out.shape}")
+                    if self.config.keep_boundary_predictions:
+                        out = np.transpose(out, (0, 3, 2, 1))
+                    else:
+                        out = np.transpose(out, (2, 1, 0))
+                else:
+                    out = np.array(out)
+                    logger.info(
+                        f" Output max {out.max()}, output min {out.min()},"
+                        f" output mean {out.mean()}, output median {np.median(out)}"
+                    )
+
                 self.log("Saving prediction...")
                 self.save_image("prediction", out, "prediction")
-
                 self.log("Done")
 
-                out = post_process_transforms(out)
+
+                # if self.transforms["thresh"][0]:
+                #     out = out > self.transforms["thresh"][1]
+                # logger.info(f" Output shape: {out.shape}")
+                # out = np.squeeze(out)
+                # logger.info(f" Output shape: {out.shape}")
+                # if self.config.model_info.out_channels >1 :
+                #     out = np.transpose(out, (0, 3, 2, 1))
+                # else:
+                #     out =np.transpose(out, (0, 2, 1))
+                #
+                # if self.config.run_semantic_evaluation:
+                #     from evaluate_semantic import run_evaluation
+                #
+                #     run_evaluation(out)
+
+                model.to("cpu")
+
                 self.log("Saving semantic labels...")
-                file_path = self.save_image(
-                    name=f"Semantic_labels_{image_id}",
-                    image=out.numpy(),
-                    folder="semantic_labels",
-                )
-
-            logger.info(
-                f" Output max {out.max()}, output min {out.min()},"
-                f" output mean {out.mean()}, output median {np.median(out)}"
-            )
-            logger.info(f" Output shape: {out.shape}")
-
-            if self.config.compute_instance_boundaries:
-                out = F.softmax(out, dim=1)
-                out = np.array(out)  # .astype(np.float32)
-
-                if self.config.keep_boundary_predictions:
-                    out = out[:, 1:, :, :, :]
-                else:
-                    out = out[:, 1, :, :, :]
-                if self.config.post_process_config.threshold.enabled:
-                    out = (
-                        out > self.config.post_process_config.threshold.threshold_value
-                    )
-                logger.info(f" Output shape: {out.shape}")
-                out = np.squeeze(out)
-                logger.info(f" Output shape: {out.shape}")
-                if self.config.keep_boundary_predictions:
-                    out = np.transpose(out, (0, 3, 2, 1))
-                else:
-                    out = np.transpose(out, (2, 1, 0))
-            else:
-                out = np.array(out)
+                out = post_process_transforms(out)
                 logger.info(
                     f" Output max {out.max()}, output min {out.min()},"
                     f" output mean {out.mean()}, output median {np.median(out)}"
                 )
-
-                # if self.transforms["thresh"][0]:
-                #     out = out > self.transforms["thresh"][1]
                 logger.info(f" Output shape: {out.shape}")
-                out = np.squeeze(out)
-                logger.info(f" Output shape: {out.shape}")
-                if self.config.model_info.out_channels >1 :
-                    out = np.transpose(out, (0, 3, 2, 1))
-                else:
-                    out =np.transpose(out, (0, 2, 1))
+                file_path = self.save_image(
+                    name=f"Semantic_labels_{image_id}",
+                    image=np.array(out),
+                    folder="semantic_labels",
+                )
 
-            if self.config.run_semantic_evaluation:
-                from evaluate_semantic import run_evaluation
-
-                run_evaluation(out)
-
-            model.to("cpu")
-            return file_path
-
+                return file_path
         except Exception as e:
             raise e
+
+
 
 
 if __name__ == "__main__":

@@ -105,7 +105,7 @@ def create_dataset_dict(volume_directory, label_directory):
         [str(file) for file in Path(label_directory).glob("*.tif")]
     )
     if len(images_filepaths) == 0 or len(labels_filepaths) == 0:
-        raise ValueError("Data folders are empty")
+        raise ValueError(f"Data folders are empty \n{volume_directory} \n{label_directory}")
 
     logger.info("Images :")
     for file in images_filepaths:

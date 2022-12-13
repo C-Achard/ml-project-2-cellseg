@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 # MONAI
 import napari
+import tifffile
 from monai.data import (
     CacheDataset,
     DataLoader,
@@ -11,6 +12,7 @@ from monai.data import (
     decollate_batch,
     pad_list_data_collate,
 )
+
 from monai.losses import (
     DiceLoss,
 )
@@ -184,7 +186,10 @@ class Trainer:
         if self.sampling:
             sample_loader = Compose(
                 [
-                    LoadImaged(keys=["image", "label"]),
+                    LoadImaged(keys=["image", "label"],
+                               # ensure_channel_first=True, image_only=True, simple_keys=True
+                               ),
+                    # ToTensord(keys=["image", "label"]),
                     EnsureChannelFirstd(keys=["image", "label"]),
                     RandSpatialCropSamplesd(
                         keys=["image", "label"],
@@ -193,10 +198,10 @@ class Trainer:
                         num_samples=self.num_samples,
                     ),
                     Orientationd(keys=["image", "label"], axcodes="PLI"),
-                    SpatialPadd(
-                        keys=["image", "label"],
-                        spatial_size=(get_padding_dim(self.sample_size)),
-                    ),
+                    # SpatialPadd(
+                    #     keys=["image", "label"],
+                    #     spatial_size=(get_padding_dim(self.sample_size)),
+                    # ),
                     EnsureTyped(keys=["image", "label"]),
                 ]
             )
@@ -213,7 +218,7 @@ class Trainer:
                         clip=True,
                     ),
                     # Zoomd(keys=["image", "label"], zoom=[1, 1, 5], keep_size=True, ),
-                    RandShiftIntensityd(keys=["image"], offsets=0.1, prob=0.5),
+                    # RandShiftIntensityd(keys=["image"], offsets=0.1, prob=0.5),
                     RandFlipd(keys=["image", "label"], spatial_axis=[1], prob=0.5),
                     RandFlipd(keys=["image", "label"], spatial_axis=[2], prob=0.5),
                     RandRotate90d(keys=["image", "label"], prob=0.1, max_k=3),
@@ -261,7 +266,7 @@ class Trainer:
         else:
             load_single_images = Compose(
                 [
-                    LoadImaged(keys=["image", "label"]),
+                    LoadImaged(keys=["image", "label"],reader=tifffile.imread, image_only=True, simple_keys=True),
                     EnsureChannelFirstd(
                         keys=["image", "label"], channel_dim=config.out_channels
                     ),
@@ -293,18 +298,26 @@ class Trainer:
 
         if self.plot_training_inputs:
             logger.info("Plotting dataset")
+            view = napari.viewer.Viewer()
             for check_data in train_loader:
-                image, label = (check_data["image"][0][0], check_data["label"][0][0])
-                print(f"image shape: {image.shape}, label shape: {label.shape}")
-                plt.figure("check", (12, 6))
-                plt.subplot(1, 2, 1)
-                plt.title("image")
-                plt.imshow(image[:, :, 40], cmap="gray")
-                plt.subplot(1, 2, 2)
-                plt.title("label")
-                plt.imshow(label[:, :, 40])
-                # plt.savefig('/home/maximevidal/Documents/cell-segmentation-models/results/imageinput.png')
-                plt.show()
+                print(check_data.keys())
+                image, label = (check_data["image"], check_data["label"])
+
+
+                view.add_image(image.numpy())
+                view.add_labels(label.numpy().astype(np.int8))
+            napari.run()
+                # image, label = (check_data["image"][0][0], check_data["label"][0][0])
+                # print(f"image shape: {image.shape}, label shape: {label.shape}")
+                # plt.figure("check", (12, 6))
+                # plt.subplot(1, 2, 1)
+                # plt.title("image")6
+                # plt.imshow(image[:, :, 40], cmap="gray")
+                # plt.subplot(1, 2, 2)
+                # plt.title("label")
+                # plt.imshow(label[:, :, 40])
+                # # plt.savefig('/home/maximevidal/Documents/cell-segmentation-models/results/imageinput.png')
+                # plt.show()
 
         logger.info("Creating optimizer")
         optimizer = torch.optim.AdamW(
@@ -318,10 +331,9 @@ class Trainer:
         dice_metric = DiceMetric(
             include_background=True, reduction="mean", get_not_nans=False
         )
-        if self.compute_instance_boundaries:
-                # or self.config.out_channels > 1
+        if self.compute_instance_boundaries or self.config.out_channels > 1:
             dice_metric_only_cells = DiceMetric(
-                include_background=True, reduction="mean", get_not_nans=False
+                include_background=False, reduction="mean", get_not_nans=False
             )
 
         best_metric = -1
@@ -374,7 +386,9 @@ class Trainer:
             model.train()
             epoch_loss = 0
             step = 0
+
             for batch_data in train_loader:
+
                 step += 1
                 inputs, labels = (
                     batch_data["image"].to(self.device),
@@ -433,14 +447,14 @@ class Trainer:
                         labs = decollate_batch(val_labels)
 
                         if self.compute_instance_boundaries:
-                            post_pred = AsDiscrete(argmax=True, to_onehot=3, n_classes=3)
-                            post_label = AsDiscrete(to_onehot=3, n_classes=3)
+                            post_pred = AsDiscrete(argmax=True, to_onehot=3) #, n_classes=3)
+                            post_label = AsDiscrete(to_onehot=3) #, n_classes=3)
                         elif self.config.out_channels > 1:
                             post_pred = Compose([
                                 # Activations(softmax=True),
-                                AsDiscrete(argmax=True, to_onehot=2, n_classes=2)
+                                AsDiscrete(argmax=True, to_onehot=2) #, n_classes=2)
                             ])
-                            post_label = AsDiscrete(to_onehot=2, n_classes=2)
+                            post_label = AsDiscrete(to_onehot=2) # , n_classes=2)
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
@@ -518,6 +532,7 @@ from monai.transforms import (
     EnsureChannelFirst,
     EnsureType,
     ToTensor,
+    ToTensord,
     Zoom,
     ScaleIntensityRange,
 )
@@ -896,8 +911,8 @@ if __name__ == "__main__":
     logger.info("Starting training")
 
     config = TrainerConfig()
-    # config.model_info.name = "SwinUNetR"
-    config.model_info.name = "VNet"
+    config.model_info.name = "SwinUNetR"
+    # config.model_info.name = "TRAILMAP_MS"
     # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
 
     config.val_interval = 2
@@ -907,30 +922,40 @@ if __name__ == "__main__":
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
 
-    config.train_volume_directory = str(repo_path / "dataset/visual_tif/volumes")
+    config.train_volume_directory = str(
+        # repo_path / "dataset/visual_tif/volumes"
+        repo_path / "dataset/axons/training/custom-training/volumes"
+    )
     config.train_label_directory = str(
-        repo_path / "dataset/visual_tif/labels/labels_sem"
+        # repo_path / "dataset/visual_tif/labels/labels_sem"
         # repo_path / "dataset/visual_tif/artefact_neurons"
+        repo_path / "dataset/axons/training/custom-training/labels"
     )
 
     # use these if not using validation_percent
-    config.validation_volume_directory = str(repo_path / "dataset/somatomotor/volumes") # str(repo_path / "dataset/visual_tif/volumes")
+    config.validation_volume_directory = str(
+        # repo_path / "dataset/somatomotor/volumes"
+        repo_path / "dataset/axons/validation/custom-validation/volumes"
+        # str(repo_path / "dataset/visual_tif/volumes")
+    )
     config.validation_label_directory = str(
+        repo_path / "dataset/axons/validation/custom-validation/labels"
         # repo_path / "dataset/somatomotor/artefact_neurons"
-        repo_path / "dataset/somatomotor/lab_sem"
+        # repo_path / "dataset/somatomotor/lab_sem"
     )
         # repo_path / "dataset/visual_tif/artefact_neurons"
 
-    config.out_channels = 1
+    config.out_channels = 3
     config.learning_rate = 1e-4
+    # config.plot_training_inputs = True
 
-    save_folder = "results_one_channel"
+    save_folder = "results_multichannel" # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
-    config.num_samples = 40
-    config.max_epochs = 5
+    config.num_samples = 5
+    config.max_epochs = 6
 
     trainer = Trainer(config)
     trainer.log_parameters()
