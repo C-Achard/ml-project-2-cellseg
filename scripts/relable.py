@@ -3,11 +3,11 @@ from tifffile import imread
 from tifffile import imwrite
 from pathlib import Path
 import scipy.ndimage as ndimage
-import os
+from pathlib import Path
 import napari
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(str(Path(__file__) / ".."))
 from post_processing import binary_watershed
 import scripts.make_artefact_labels as make_artefact_labels
 import time
@@ -242,8 +242,8 @@ def visualize_map(map_labels_existing, label_path, relable_path, delay=0.5):
 
     viewer = napari.Viewer()
 
-    old_label = viewer.add_labels(label, num_colors=1)
-    new_label = viewer.add_labels(relable, num_colors=1)
+    old_label = viewer.add_labels(label, num_colors=2)
+    new_label = viewer.add_labels(relable, num_colors=2)
     old_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0]])
     new_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 1.0]])
 
@@ -267,22 +267,22 @@ def relable_non_unique_i_folder(folder_path, end_of_new_name):
     save_path : str
         the path to save the relabled image
     """
-    for file in os.listdir(folder_path):
+    for file in Path.iterdir(folder_path):
         if file.endswith(".tif"):
-            label = imread(os.path.join(folder_path, file))
+            label = imread(str(Path(folder_path / file)))
             relable_non_unique_i(
-                label, os.path.join(folder_path, file[:-4] + end_of_new_name + ".tif")
+                label, str(Path(folder_path / file[:-4] + end_of_new_name + ".tif"))
             )
 
 
 if __name__ == "__main__":
 
     repo_path = Path(__file__).resolve().parents[1]
-    file_path = os.path.join(
-        repo_path, "dataset", "visual_tif", "labels", "testing_im.tif"
-    )
-    image_path = os.path.join(
-        repo_path, "dataset", "visual_tif", "volumes", "images.tif"
-    )
+    file_path = str(Path(
+        repo_path / "dataset/visual_tif/labels/testing_im.tif"
+    ))
+    image_path = str(Path(
+        repo_path, "dataset/visual_tif/volumes/images.tif"
+    ))
 
     relable(image_path, file_path, check_for_unicity=True, go_fast=False)
