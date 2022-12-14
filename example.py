@@ -12,6 +12,7 @@ from monai.data import (
 )
 from monai.metrics import DiceMetric
 from monai.transforms import (
+    Activations,
     EnsureChannelFirstd,
     EnsureTyped,
     LoadImaged,
@@ -737,6 +738,16 @@ class Inference:
 
             if not post_process_config.thresholding.enabled:
                 post_process_transforms = EnsureType()
+            elif post_process_config.thresholding.enabled and self.config.model_info.out_channels > 1:
+                self.log("Using argmax and one-hot format")
+                t = post_process_config.thresholding.threshold_value
+                post_process_transforms = Compose(
+                    [
+                        AsDiscrete(argmax=True, to_onehot=3, threshold=t),
+                        # Activations(softmax=True),
+                        # EnsureType()
+                    ]
+                )
             else:
                 t = post_process_config.thresholding.threshold_value
                 post_process_transforms = Compose(
@@ -842,7 +853,7 @@ class Inference:
                 logger.info(f" Output shape: {out.shape}")
                 file_path = self.save_image(
                     name=f"Semantic_labels_{image_id}",
-                    image=np.array(out),
+                    image=np.array(out).astype(np.float32),
                     folder="semantic_labels",
                 )
 

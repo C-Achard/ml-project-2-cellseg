@@ -461,7 +461,8 @@ class Trainer:
                                 [
                                     # Activations(softmax=True),
                                     AsDiscrete(
-                                        argmax=True, to_onehot=self.config.out_channels
+                                        argmax=True,
+                                        to_onehot=self.config.out_channels
                                     )  # , n_classes=2)
                                 ]
                             )
@@ -966,7 +967,7 @@ if __name__ == "__main__":
     config.learning_rate = 1e-3
     # config.plot_training_inputs = True
 
-    save_folder = "results_multichannel"  # "results_one_channel"
+    save_folder = "results_multichannel_test"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
