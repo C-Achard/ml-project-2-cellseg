@@ -16,6 +16,7 @@ from monai.data import (
 from monai.losses import (
     DiceLoss,
 )
+from monai.networks.utils import one_hot
 from monai.metrics import DiceMetric
 from monai.transforms import (
     Activations,
@@ -89,7 +90,11 @@ class Trainer:
 
         if self.config.out_channels > 1:
             logger.info("Using SOFTMAX loss")
-            self.loss_function = DiceLoss(softmax=True, to_onehot_y=True)
+            self.loss_function = DiceLoss(
+                softmax=True,
+                # to_onehot_y=True
+                # removed here, done at model level to account for error with images with single label
+            )
             # self.loss_function = DiceLoss(to_onehot_y=True)
         else:
             logger.info("Using SIGMOID loss")
@@ -419,7 +424,11 @@ class Trainer:
                 #     f" output mean {out.mean()}, output median {np.median(out)}"
                 # )
 
-                loss = self.loss_function(logits, labels)
+                loss = self.loss_function(  # softmax is done by DiceLoss
+                    logits, one_hot(
+                        labels, num_classes=self.config.model_info.out_channels
+                    )
+                )
                 loss.backward()
                 optimizer.step()
 
