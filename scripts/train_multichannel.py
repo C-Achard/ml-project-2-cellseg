@@ -93,7 +93,7 @@ class Trainer:
             self.loss_function = DiceLoss(
                 softmax=True,
                 # to_onehot_y=True
-                # removed here, done at model level to account for error with images with single label
+                # removed here, done at model level to account for possible error with images with single label
             )
             # self.loss_function = DiceLoss(to_onehot_y=True)
         else:
@@ -425,9 +425,8 @@ class Trainer:
                 # )
 
                 loss = self.loss_function(  # softmax is done by DiceLoss
-                    logits, one_hot(
-                        labels, num_classes=self.config.model_info.out_channels
-                    )
+                    logits,
+                    one_hot(labels, num_classes=self.config.model_info.out_channels),
                 )
                 loss.backward()
                 optimizer.step()
@@ -470,8 +469,7 @@ class Trainer:
                                 [
                                     # Activations(softmax=True),
                                     AsDiscrete(
-                                        argmax=True,
-                                        to_onehot=self.config.out_channels
+                                        argmax=True, to_onehot=self.config.out_channels
                                     )  # , n_classes=2)
                                 ]
                             )

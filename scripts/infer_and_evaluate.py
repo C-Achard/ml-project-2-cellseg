@@ -21,7 +21,8 @@ if __name__ == "__main__":
     pred_conf = InferenceWorkerConfig()
     pred_conf.model_info.name = "SwinUNetR"
     pred_conf.weights_config.path = str(
-        repo_path / f"results_multichannel/{pred_conf.model_info.name}_best_metric.pth"
+        repo_path
+        / f"results_multichannel/{pred_conf.model_info.name}_best_metric.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = 3
@@ -37,7 +38,12 @@ if __name__ == "__main__":
     Path(pred_conf.results_path).mkdir(exist_ok=True)
 
     # pred_conf.image = imread(str(repo_path / "dataset/visual_tif/volumes/testing_images.tif"))
-    pred_conf.image = imread(str(repo_path / "dataset/axons/validation/custom-validation/volumes/volume_0.tif"))
+    pred_conf.image = imread(
+        str(
+            repo_path
+            / "dataset/axons/validation/custom-validation/volumes/volume_0.tif"
+        )
+    )
 
     worker = Inference(config=pred_conf)
     worker.log_parameters()
@@ -51,7 +57,7 @@ if __name__ == "__main__":
     logger.debug(f"Result shape : {result.shape}")
 
     if ground_truth is not None:
-        if pred_conf.model_info.out_channels > 1 :
+        if pred_conf.model_info.out_channels > 1:
             logger.info(f"DICE METRIC : {dice_metric(ground_truth, result[1])}")
         else:
             logger.info(f"DICE METRIC : {dice_metric(ground_truth, result)}")

@@ -6,6 +6,7 @@ from utils import read_tiff_stack_labels
 import numpy as np
 from pathlib import Path
 
+
 def split_image_n(n, image_path):
     """
     Split image into n equal parts using dask
@@ -26,9 +27,10 @@ def split_image_n(n, image_path):
     #     print(f"Saving to {name}")
     #     imwrite(name, split, bigtiff=True)
 
-if __name__ ==  '__main__' :
+
+if __name__ == "__main__":
     # Load image
-    image_path = 'E:/BRAIN_DATA/ExpC_TPH2_whole_brain.tif'
+    image_path = "E:/BRAIN_DATA/ExpC_TPH2_whole_brain.tif"
     split_image_n(10, image_path)
 
 
