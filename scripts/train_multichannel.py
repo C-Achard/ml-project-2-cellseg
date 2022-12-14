@@ -69,6 +69,7 @@ class Trainer:
         logger.info(f"Using {self.device} device")
         logger.info(f"Using torch : {torch.__version__}")
         self.model_class = self.config.model_info.get_model()
+        self.out_channels = self.config.model_info.out_channels
         self.weights_path = self.config.weights_path
         self.validation_percent = self.config.validation_percent
         self.max_epochs = self.config.max_epochs
@@ -88,7 +89,7 @@ class Trainer:
         self.compute_instance_boundaries = self.config.compute_instance_boundaries
         self.deterministic = self.config.deterministic
 
-        if self.config.out_channels > 1:
+        if self.config.model_info.out_channels > 1:
             logger.info("Using SOFTMAX loss")
             self.loss_function = DiceLoss(
                 softmax=True,
@@ -116,7 +117,7 @@ class Trainer:
             logger.info(f"Seed is 42")
 
         logger.info(f"Training for {self.max_epochs} epochs")
-        logger.info(f"Number of output channels : {self.config.out_channels}")
+        logger.info(f"Number of output channels : {self.out_channels}")
         logger.info(f"Loss function is : {str(self.loss_function)}")
         logger.info(f"Validation is performed every {self.val_interval} epochs")
         logger.info(f"Batch size is {self.batch_size}")
@@ -156,7 +157,7 @@ class Trainer:
             logger.info(f"The volume size is {size}")
             model = self.model_class.get_net(
                 input_image_size=get_padding_dim(size),
-                out_channels=self.config.out_channels,
+                out_channels=self.out_channels,
                 dropout_prob=0.3,
             )
         elif self.config.model_info.name == "SwinUNetR":
@@ -168,10 +169,10 @@ class Trainer:
             model = self.model_class.get_net(
                 img_size=get_padding_dim(size),
                 use_checkpoint=False,
-                out_channels=self.config.out_channels,
+                out_channels=self.out_channels,
             )
         else:
-            model = self.model_class.get_net(out_channels=self.config.out_channels)
+            model = self.model_class.get_net(out_channels=self.out_channels)
 
         model = torch.nn.DataParallel(model).to(self.device)
 
@@ -341,7 +342,7 @@ class Trainer:
         dice_metric = DiceMetric(
             include_background=True, reduction="mean", get_not_nans=False
         )
-        if self.compute_instance_boundaries or self.config.out_channels > 1:
+        if self.compute_instance_boundaries or self.out_channels > 1:
             dice_metric_only_cells = DiceMetric(
                 include_background=False, reduction="mean", get_not_nans=False
             )
@@ -424,9 +425,30 @@ class Trainer:
                 #     f" output mean {out.mean()}, output median {np.median(out)}"
                 # )
 
+                ohe_labels = one_hot(labels, num_classes=self.config.model_info.out_channels)
+                # # print(ohe_labels.min())
+                # print(ohe_labels[0,0,:,:,:].max())
+                # print(ohe_labels[0,1,:,:,:].max())
+                # print(ohe_labels[0,2,:,:,:].max())
+                #
+                # view = napari.viewer.Viewer()
+                #
+                # view.add_labels(labels[0, :,:,:,:].cpu().numpy().astype(dtype=np.int8), name="gt")
+                # view.add_labels(ohe_labels[0, 0, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 1")
+                # view.add_labels(ohe_labels[0, 1, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 2")
+                # view.add_labels(ohe_labels[0, 2, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 3")
+                # napari.run()
+                # return None
+                # ohe_labels = torch.zeros_like(ohe_labels)
+                # for lab in labels:
+                #     if lab.max()==2:
+                #         ohe_labels[2, :,:,:] = lab
+                #     elif lab.max() == 1:
+                #         ohe_labels[1, :,:,:] = lab
+
                 loss = self.loss_function(  # softmax is done by DiceLoss
                     logits,
-                    one_hot(labels, num_classes=self.config.model_info.out_channels),
+                    ohe_labels,
                 )
                 loss.backward()
                 optimizer.step()
@@ -451,7 +473,8 @@ class Trainer:
 
                         val_outputs = self.model_class.get_validation(model, val_inputs)
 
-                        val_loss = self.loss_function(val_outputs, val_labels)
+                        ohe_val_labels = one_hot(val_labels, num_classes=self.config.model_info.out_channels)
+                        val_loss = self.loss_function(val_outputs, ohe_val_labels)
                         # wandb.log({"validation loss": val_loss.detach().item()})
                         logger.info(f"Validation loss: {val_loss.detach().item():.4f}")
 
@@ -464,17 +487,17 @@ class Trainer:
                                 argmax=True, to_onehot=3
                             )  # , n_classes=3)
                             post_label = AsDiscrete(to_onehot=3)  # , n_classes=3)
-                        elif self.config.out_channels > 1:
+                        elif self.out_channels > 1:
                             post_pred = Compose(
                                 [
                                     # Activations(softmax=True),
                                     AsDiscrete(
-                                        argmax=True, to_onehot=self.config.out_channels
+                                        argmax=True, to_onehot=self.out_channels
                                     )  # , n_classes=2)
                                 ]
                             )
                             post_label = AsDiscrete(
-                                to_onehot=self.config.out_channels
+                                to_onehot=self.out_channels
                             )  # , n_classes=2)
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
@@ -486,7 +509,7 @@ class Trainer:
                         dice_metric(y_pred=val_outputs, y=val_labels)
 
                         if self.compute_instance_boundaries:
-                            # or self.config.out_channels > 1:
+                            # or self.out_channels > 1:
                             val_labels = [
                                 val_label[1, :, :, :] for val_label in val_labels
                             ]
@@ -501,7 +524,7 @@ class Trainer:
                     dice_metric.reset()
 
                     if self.compute_instance_boundaries:
-                        # or self.config.out_channels > 1:
+                        # or self.out_channels > 1:
                         metric_cells = (
                             dice_metric_only_cells.aggregate().detach().item()
                         )
@@ -797,11 +820,11 @@ class Inference:
                         dims,
                         dims,
                     ],
-                    out_channels=self.config.out_channels,
+                    out_channels=self.out_channels,
                 )
             elif model_name == "SwinUNetR":
 
-                out_channels = self.config.out_channels
+                out_channels = self.out_channels
                 if self.config.compute_instance_boundaries:
                     out_channels = 3
                 model = model_class.get_net(
@@ -932,7 +955,8 @@ if __name__ == "__main__":
     logger.info("Starting training")
 
     config = TrainerConfig()
-    config.model_info.name = "SwinUNetR"
+    config.model_info.name = "VNet"
+    # config.model_info.name = "SwinUNetR"
     # config.model_info.name = "TRAILMAP_MS"
     # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
 
@@ -970,7 +994,7 @@ if __name__ == "__main__":
     )
     # repo_path / "dataset/visual_tif/artefact_neurons"
 
-    config.out_channels = 3
+    config.model_info.out_channels = 3
     config.learning_rate = 1e-3
     # config.plot_training_inputs = True
 

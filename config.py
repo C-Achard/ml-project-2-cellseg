@@ -167,6 +167,7 @@ class TrainerConfig:
     def __init__(self, **kwargs):
         self.model_info = ModelInfo("TRAILMAP_MS")
         self.model_name = self.model_info.name
+        self.out_channels = self.model_info.out_channels
         self.weights_path = None
         self.validation_percent = None  # 0.8
         self.train_volume_directory = ()
@@ -174,7 +175,7 @@ class TrainerConfig:
         self.validation_volume_directory = ()
         self.validation_label_directory = ()
 
-        self.out_channels = 1
+        # self.out_channels = 1
         self.max_epochs = 50
         self.learning_rate = 3e-4
         self.val_interval = 1

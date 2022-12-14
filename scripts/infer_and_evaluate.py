@@ -19,10 +19,11 @@ if __name__ == "__main__":
     print(f"REPO PATH : {repo_path}")
 
     pred_conf = InferenceWorkerConfig()
-    pred_conf.model_info.name = "SwinUNetR"
+    # pred_conf.model_info.name = "SwinUNetR"
+    pred_conf.model_info.name = "VNet"
     pred_conf.weights_config.path = str(
         repo_path
-        / f"results_multichannel/{pred_conf.model_info.name}_best_metric.pth"
+        / f"results_multichannel_test/{pred_conf.model_info.name}_best_metric.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = 3
