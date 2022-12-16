@@ -63,7 +63,7 @@ def dice_metric(y_true, y_pred):
 
 def get_loss(key, device="cpu"):
     loss_dict = {
-        "Dice loss": DiceLoss(sigmoid=True),
+        "Dice loss": DiceLoss(softmax=True, to_onehot_y=True),
         "Focal loss": FocalLoss(),
         "Dice-Focal loss": DiceFocalLoss(sigmoid=True, lambda_dice=0.5),
         "Generalized Dice loss": GeneralizedDiceLoss(sigmoid=True),
@@ -79,15 +79,15 @@ def get_loss(key, device="cpu"):
     return loss_dict[key]
 
 
-def get_model(key):
-    models_dict = {
-        "VNet": VNet,
-        "SegResNet": SegResNet,
-        "TRAILMAP_pre-trained": TRAILMAP,
-        "TRAILMAP_test": TMAP,
-        "Swin": Swin,
-    }
-    return models_dict[key]
+# def get_model(key):
+#     models_dict = {
+#         "VNet": VNet,
+#         "SegResNet": SegResNet,
+#         "TRAILMAP_pre-trained": TRAILMAP,
+#         "TRAILMAP_test": TMAP,
+#         "Swin": Swin,
+#     }
+#     return models_dict[key]
 
 
 def zoom_factor(voxel_sizes):
@@ -97,11 +97,15 @@ def zoom_factor(voxel_sizes):
 
 def create_dataset_dict(volume_directory, label_directory):
     """Creates data dictionary for MONAI transforms and training."""
-    images_filepaths = sorted(glob.glob(str(Path(volume_directory) / "*.tif")))
+    images_filepaths = sorted(
+        [str(file) for file in Path(volume_directory).glob("*.tif")]
+    )
 
-    labels_filepaths = sorted(glob.glob(str(Path(label_directory) / "*.tif")))
+    labels_filepaths = sorted(
+        [str(file) for file in Path(label_directory).glob("*.tif")]
+    )
     if len(images_filepaths) == 0 or len(labels_filepaths) == 0:
-        raise ValueError("Data folders are empty")
+        raise ValueError(f"Data folders are empty \n{volume_directory} \n{label_directory}")
 
     logger.info("Images :")
     for file in images_filepaths:
@@ -334,3 +338,4 @@ def define_matplotlib_defaults():
     p["lines.markeredgecolor"] = "auto"
     p["lines.markerfacecolor"] = "auto"
     p["lines.markersize"] = 3
+

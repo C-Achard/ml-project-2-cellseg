@@ -210,8 +210,8 @@ def create_artefact_labels(
         label_value=2,
         do_multi_label=False,
     )
-    neurons_artefacts_labels = np.where(labels > 0, 1, artefacts)
 
+    neurons_artefacts_labels = np.where(labels > 0, 1, artefacts)
     imwrite(output_path, neurons_artefacts_labels)
 
 
@@ -222,7 +222,7 @@ def visualize_images(paths):
     paths : list
         List of paths to images to visualize.
     """
-    viewer = napari.Viewer()
+    viewer = napari.Viewer(ndisplay=3)
     for path in paths:
         viewer.add_image(imread(path), name=os.path.basename(path))
     # wait for the user to close the viewer
@@ -296,7 +296,7 @@ if __name__ == "__main__":
         create_artefact_labels_from_folder(
             path,
             do_visualize=False,
-            threshold_artefact_brightness_percent=40,
+            threshold_artefact_brightness_percent=20,
             threshold_artefact_size_percent=1,
             contrast_power=20,
         )

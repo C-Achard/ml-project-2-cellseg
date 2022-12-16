@@ -1,10 +1,13 @@
 import logging
-import os
-
-import matplotlib.pyplot as plt
+import warnings
+import pandas as pd
+from pathlib import Path
 import torch
+import numpy as np
 
 # MONAI
+import napari
+import tifffile
 from monai.data import (
     CacheDataset,
     DataLoader,
@@ -12,12 +15,18 @@ from monai.data import (
     decollate_batch,
     pad_list_data_collate,
 )
+
+from monai.losses import (
+    DiceLoss,
+)
+from monai.networks.utils import one_hot
 from monai.metrics import DiceMetric
 from monai.transforms import (
     AsDiscrete,
     Compose,
     EnsureChannelFirstd,
     EnsureTyped,
+    EnsureType,
     LoadImaged,
     Orientationd,
     RandFlipd,
@@ -26,16 +35,18 @@ from monai.transforms import (
     RandSpatialCropSamplesd,
     SpatialPadd,
     ScaleIntensityRanged,
-    Zoomd,
-    EnsureType,
 )
 from monai.utils import set_determinism
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from config import TrainerConfig
-from utils import get_loss, create_dataset_dict, get_padding_dim
+from utils import fill_list_in_between, create_dataset_dict, get_padding_dim
+from tifffile import imwrite
+
+from config import InferenceWorkerConfig, TrainerConfig
+from predict import Inference
 
 logger = logging.getLogger(__name__)
+# logger.setLevel(logging.DEBUG)
 
 
 class Trainer:
@@ -63,6 +74,7 @@ class Trainer:
         logger.info(f"Using {self.device} device")
         logger.info(f"Using torch : {torch.__version__}")
         self.model_class = self.config.model_info.get_model()
+        self.out_channels = self.config.model_info.out_channels
         self.weights_path = self.config.weights_path
         self.validation_percent = self.config.validation_percent
         self.max_epochs = self.config.max_epochs
@@ -81,7 +93,45 @@ class Trainer:
         self.val_files = []
         self.compute_instance_boundaries = self.config.compute_instance_boundaries
         self.deterministic = self.config.deterministic
-        self.loss_function = get_loss(self.config.loss_function_name)
+
+        self.loss_values = []
+        self.validation_values = []
+        self.df = None
+
+        if self.config.model_info.out_channels > 1:
+            logger.info("Using SOFTMAX loss")
+            self.loss_function = DiceLoss(
+                softmax=True,
+                # to_onehot_y=True
+                # removed here, done at model level to account for possible error with images with single label
+            )
+            # self.loss_function = DiceLoss(to_onehot_y=True)
+        else:
+            logger.info("Using SIGMOID loss")
+            self.loss_function = DiceLoss(sigmoid=True)
+        # self.loss_function = get_loss(self.config.loss_function_name, self.device)
+
+    def make_train_csv(self):
+        size_column = range(1, len(self.loss_values) + 1)
+
+        if len(self.loss_values) == 0 or self.loss_values is None:
+            warnings.warn("No loss values to add to csv !")
+            return
+
+        self.df = pd.DataFrame(
+            {
+                "epoch": size_column,
+                "loss": self.loss_values,
+                "validation": fill_list_in_between(
+                    self.validation_values, self.val_interval - 1, ""
+                )[: len(size_column)],
+            }
+        )
+        path = str(
+            Path(self.results_path)
+            / f"{self.config.model_info.name}_{self.max_epochs}e_training.csv"
+        )
+        self.df.to_csv(path, index=False)
 
     def log_parameters(self):
 
@@ -98,6 +148,7 @@ class Trainer:
             logger.info(f"Seed is 42")
 
         logger.info(f"Training for {self.max_epochs} epochs")
+        logger.info(f"Number of output channels : {self.out_channels}")
         logger.info(f"Loss function is : {str(self.loss_function)}")
         logger.info(f"Validation is performed every {self.val_interval} epochs")
         logger.info(f"Batch size is {self.batch_size}")
@@ -135,26 +186,24 @@ class Trainer:
             else:
                 size = first_volume_shape
             logger.info(f"The volume size is {size}")
-            model = self.model_class.get_net()(
+            model = self.model_class.get_net(
                 input_image_size=get_padding_dim(size),
-                out_channels=1,
+                out_channels=self.out_channels,
                 dropout_prob=0.3,
             )
-        elif self.config.model_info.name == "Swin":
+        elif self.config.model_info.name == "SwinUNetR":
+
             if self.sampling:
                 size = self.sample_size
             else:
                 size = first_volume_shape
-            logger.info(f"Size of volume : {size}")
-            model = self.model_class.get_net()(
+            model = self.model_class.get_net(
                 img_size=get_padding_dim(size),
-                in_channels=1,
-                out_channels=1,
-                feature_size=48,
-                use_checkpoint=True,
+                use_checkpoint=False,
+                out_channels=self.out_channels,
             )
         else:
-            model = self.model_class.get_net()
+            model = self.model_class.get_net(out_channels=self.out_channels)
 
         model = torch.nn.DataParallel(model).to(self.device)
 
@@ -174,7 +223,11 @@ class Trainer:
         if self.sampling:
             sample_loader = Compose(
                 [
-                    LoadImaged(keys=["image", "label"]),
+                    LoadImaged(
+                        keys=["image", "label"],
+                        # ensure_channel_first=True, image_only=True, simple_keys=True
+                    ),
+                    # ToTensord(keys=["image", "label"]),
                     EnsureChannelFirstd(keys=["image", "label"]),
                     RandSpatialCropSamplesd(
                         keys=["image", "label"],
@@ -183,15 +236,15 @@ class Trainer:
                         num_samples=self.num_samples,
                     ),
                     Orientationd(keys=["image", "label"], axcodes="PLI"),
-                    SpatialPadd(
-                        keys=["image", "label"],
-                        spatial_size=(get_padding_dim(self.sample_size)),
-                    ),
+                    # SpatialPadd(
+                    #     keys=["image", "label"],
+                    #     spatial_size=(get_padding_dim(self.sample_size)),
+                    # ),
                     EnsureTyped(keys=["image", "label"]),
                 ]
             )
 
-        if self.do_augment:
+        if self.do_augment:  # TODO : investigate more augmentations
             train_transforms = Compose(
                 [
                     ScaleIntensityRanged(
@@ -203,7 +256,7 @@ class Trainer:
                         clip=True,
                     ),
                     # Zoomd(keys=["image", "label"], zoom=[1, 1, 5], keep_size=True, ),
-                    RandShiftIntensityd(keys=["image"], offsets=0.1, prob=0.5),
+                    # RandShiftIntensityd(keys=["image"], offsets=0.1, prob=0.5),
                     RandFlipd(keys=["image", "label"], spatial_axis=[1], prob=0.5),
                     RandFlipd(keys=["image", "label"], spatial_axis=[2], prob=0.5),
                     RandRotate90d(keys=["image", "label"], prob=0.1, max_k=3),
@@ -251,8 +304,15 @@ class Trainer:
         else:
             load_single_images = Compose(
                 [
-                    LoadImaged(keys=["image", "label"]),
-                    EnsureChannelFirstd(keys=["image", "label"]),
+                    LoadImaged(
+                        keys=["image", "label"],
+                        reader=tifffile.imread,
+                        image_only=True,
+                        simple_keys=True,
+                    ),
+                    EnsureChannelFirstd(
+                        keys=["image", "label"], channel_dim=config.out_channels
+                    ),
                     Orientationd(keys=["image", "label"], axcodes="PLI"),
                     SpatialPadd(
                         keys=["image", "label"],
@@ -281,33 +341,41 @@ class Trainer:
 
         if self.plot_training_inputs:
             logger.info("Plotting dataset")
+            view = napari.viewer.Viewer()
             for check_data in train_loader:
-                image, label = (check_data["image"][0][0], check_data["label"][0][0])
-                print(f"image shape: {image.shape}, label shape: {label.shape}")
-                plt.figure("check", (12, 6))
-                plt.subplot(1, 2, 1)
-                plt.title("image")
-                plt.imshow(image[:, :, 40], cmap="gray")
-                plt.subplot(1, 2, 2)
-                plt.title("label")
-                plt.imshow(label[:, :, 40])
-                # plt.savefig('/home/maximevidal/Documents/cell-segmentation-models/results/imageinput.png')
-                plt.show()
+                print(check_data.keys())
+                image, label = (check_data["image"], check_data["label"])
+
+                view.add_image(image.numpy())
+                view.add_labels(label.numpy().astype(np.int8))
+            napari.run()
+            # image, label = (check_data["image"][0][0], check_data["label"][0][0])
+            # print(f"image shape: {image.shape}, label shape: {label.shape}")
+            # plt.figure("check", (12, 6))
+            # plt.subplot(1, 2, 1)
+            # plt.title("image")6
+            # plt.imshow(image[:, :, 40], cmap="gray")
+            # plt.subplot(1, 2, 2)
+            # plt.title("label")
+            # plt.imshow(label[:, :, 40])
+            # # plt.savefig('/home/maximevidal/Documents/cell-segmentation-models/results/imageinput.png')
+            # plt.show()
 
         logger.info("Creating optimizer")
         optimizer = torch.optim.AdamW(
             model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
         )
         scheduler = ReduceLROnPlateau(
-            optimizer, "max", patience=10, factor=0.5, verbose=True
+            optimizer, "max", patience=7, factor=0.5, verbose=True
         )
+        # scheduler = torch.cuda.amp.GradScaler()
 
         dice_metric = DiceMetric(
             include_background=True, reduction="mean", get_not_nans=False
         )
-        if self.compute_instance_boundaries:
+        if self.compute_instance_boundaries or self.out_channels > 1:
             dice_metric_only_cells = DiceMetric(
-                include_background=True, reduction="mean", get_not_nans=False
+                include_background=False, reduction="mean", get_not_nans=False
             )
 
         best_metric = -1
@@ -317,10 +385,10 @@ class Trainer:
             logger.info("Loading weights")
             if self.weights_path == "use_pretrained":
                 weights_file = self.model_class.get_weights_file()
-                weights = os.path.join(self.config.weights_dir, weights_file)
+                weights = Path(self.config.weights_dir) / weights_file
                 self.weights_path = weights
             else:
-                weights = os.path.join(self.weights_path)
+                weights = Path(self.weights_path)
 
             # # original saved file with DataParallel
             # state_dict = torch.load(weights, map_location=self.device)
@@ -360,15 +428,63 @@ class Trainer:
             model.train()
             epoch_loss = 0
             step = 0
+
             for batch_data in train_loader:
+
                 step += 1
                 inputs, labels = (
                     batch_data["image"].to(self.device),
                     batch_data["label"].to(self.device),
                 )
+                # with torch.cuda.amp.autocast():
+                #     logits = self.model_class.get_output(model, inputs)
+                #     loss = self.loss_function(logits, labels)
+                # scheduler.scale(loss).backward()
+                # scheduler.unscale_(optimizer)
+                # scheduler.step(optimizer)
+                # scheduler.update()
+                # optimizer.zero_grad()
+
                 optimizer.zero_grad()
-                outputs = self.model_class.get_output(model, inputs)
-                loss = self.loss_function(outputs, labels)
+                logits = self.model_class.get_output(model, inputs)
+
+                # logger.debug(f"Output shape : {logits.shape}")
+                # logger.debug(f"Label shape : {labels.shape}")
+                # out = logits.detach().cpu()
+                # logger.debug(
+                #     f" Output max {out.max()}, output min {out.min()},"
+                #     f" output mean {out.mean()}, output median {np.median(out)}"
+                # )
+                if self.out_channels > 1:
+                    ohe_labels = one_hot(
+                        labels, num_classes=self.config.model_info.out_channels
+                    )
+                else:
+                    ohe_labels = labels
+                # # print(ohe_labels.min())
+                # print(ohe_labels[0,0,:,:,:].max())
+                # print(ohe_labels[0,1,:,:,:].max())
+                # print(ohe_labels[0,2,:,:,:].max())
+                #
+                # view = napari.viewer.Viewer()
+                #
+                # view.add_labels(labels[0, :,:,:,:].cpu().numpy().astype(dtype=np.int8), name="gt")
+                # view.add_labels(ohe_labels[0, 0, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 1")
+                # view.add_labels(ohe_labels[0, 1, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 2")
+                # view.add_labels(ohe_labels[0, 2, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 3")
+                # napari.run()
+                # return None
+                # ohe_labels = torch.zeros_like(ohe_labels)
+                # for lab in labels:
+                #     if lab.max()==2:
+                #         ohe_labels[2, :,:,:] = lab
+                #     elif lab.max() == 1:
+                #         ohe_labels[1, :,:,:] = lab
+
+                loss = self.loss_function(  # softmax is done by DiceLoss
+                    logits,
+                    ohe_labels,
+                )
                 loss.backward()
                 optimizer.step()
 
@@ -377,10 +493,10 @@ class Trainer:
                     f"* {step - 1}/{len(train_ds) // train_loader.batch_size}, "
                     f"Train loss: {loss.detach().item():.4f}"
                 )
-                # wandb.log({"training loss": loss.detach().item()})
             epoch_loss /= step
             epoch_loss_values.append(epoch_loss)
             logger.info(f"Epoch: {epoch + 1}, Average loss: {epoch_loss:.4f}")
+            self.loss_values.append(epoch_loss)
 
             if (epoch + 1) % self.val_interval == 0:
                 model.eval()
@@ -393,7 +509,14 @@ class Trainer:
 
                         val_outputs = self.model_class.get_validation(model, val_inputs)
 
-                        val_loss = self.loss_function(val_outputs, val_labels)
+                        if self.out_channels > 1:
+                            ohe_val_labels = one_hot(
+                                val_labels,
+                                num_classes=self.config.model_info.out_channels,
+                            )
+                        else:
+                            ohe_val_labels = val_labels
+                        val_loss = self.loss_function(val_outputs, ohe_val_labels)
                         # wandb.log({"validation loss": val_loss.detach().item()})
                         logger.info(f"Validation loss: {val_loss.detach().item():.4f}")
 
@@ -402,8 +525,22 @@ class Trainer:
                         labs = decollate_batch(val_labels)
 
                         if self.compute_instance_boundaries:
-                            post_pred = AsDiscrete(argmax=True, to_onehot=3)
-                            post_label = AsDiscrete(to_onehot=3)
+                            post_pred = AsDiscrete(
+                                argmax=True, to_onehot=3
+                            )  # , n_classes=3)
+                            post_label = AsDiscrete(to_onehot=3)  # , n_classes=3)
+                        elif self.out_channels > 1:
+                            post_pred = Compose(
+                                [
+                                    # Activations(softmax=True),
+                                    AsDiscrete(
+                                        argmax=True, to_onehot=self.out_channels
+                                    )  # , n_classes=2)
+                                ]
+                            )
+                            post_label = AsDiscrete(
+                                to_onehot=self.out_channels
+                            )  # , n_classes=2)
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
@@ -414,6 +551,7 @@ class Trainer:
                         dice_metric(y_pred=val_outputs, y=val_labels)
 
                         if self.compute_instance_boundaries:
+                            # or self.out_channels > 1:
                             val_labels = [
                                 val_label[1, :, :, :] for val_label in val_labels
                             ]
@@ -425,46 +563,124 @@ class Trainer:
                     metric = dice_metric.aggregate().detach().item()
                     scheduler.step(metric)
                     # wandb.log({"dice metric validation": metric})
+                    self.validation_values.append(metric)
                     dice_metric.reset()
 
                     if self.compute_instance_boundaries:
+                        # or self.out_channels > 1:
                         metric_cells = (
                             dice_metric_only_cells.aggregate().detach().item()
                         )
-                        scheduler.step(metric_cells)
+                        # scheduler.step(metric_cells)
                         # wandb.log({"dice metric only cells validation": metric_cells})
                         dice_metric_only_cells.reset()
+                        logger.info(f"Dice mtric cells only : {metric_cells}")
 
                     val_metric_values.append(metric)
 
-                    if metric > best_metric:
+                    try:
+                        self.make_train_csv()
+                    except Exception as e:
+                        print(e)
+
+                    if metric >= best_metric:
                         best_metric = metric
                         best_metric_epoch = epoch + 1
                         logger.info("Saving best metric model")
 
-                        weights_filename = f"{self.config.model_info.name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
+                        weights_filename = f"{self.config.model_info.name}_best_metric.pth"  # f"_epoch_{epoch + 1}
 
                         # DataParallel wrappers keep raw model object in .module attribute
                         raw_model = model.module if hasattr(model, "module") else model
                         torch.save(
                             raw_model.state_dict(),
-                            os.path.join(self.results_path, weights_filename),
+                            Path(self.results_path) / weights_filename,
                         )
                         logger.info("Saving complete")
+
+                    logger.info("Saving checkpoint model")
+
+                    weights_filename = f"{self.config.model_info.name}_checkpoint.pth"
+
+                    # DataParallel wrappers keep raw model object in .module attribute
+                    raw_model = model.module if hasattr(model, "module") else model
+                    torch.save(
+                        raw_model.state_dict(),
+                        Path(self.results_path) / weights_filename,
+                    )
+                    logger.info("Saving complete")
 
                     logger.info(
                         f"Current epoch: {epoch + 1}, Current mean dice: {metric:.4f}"
                         f"\nBest mean dice: {best_metric:.4f} "
                         f"at epoch: {best_metric_epoch}"
                     )
+
         logger.info("=" * 10)
         logger.info(
             f"Train completed, best_metric: {best_metric:.4f} at epoch: {best_metric_epoch}"
         )
 
 
-tconf = TrainerConfig()
-# wandb.init(project="cell-segmentation", entity="amg", config=tconf.__dict__)
-trainer = Trainer(tconf)
-trainer.log_parameters()
-trainer.train()
+if __name__ == "__main__":
+
+    # from tifffile import imread
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.DEBUG)
+    logger.info("Starting training")
+
+    config = TrainerConfig()
+    # config.model_info.name = "SegResNet"
+    config.model_info.name = "SwinUNetR"
+    # config.model_info.name = "TRAILMAP_MS"
+    # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
+
+    config.val_interval = 2
+
+    config.batch_size = 10
+
+    repo_path = Path(__file__).resolve().parents[1]
+    print(f"REPO PATH : {repo_path}")
+
+    config.train_volume_directory = str(
+        # repo_path / "dataset/visual_tif/volumes"
+        repo_path
+        / "dataset/axons/training/custom-training/volumes"
+    )
+    config.train_label_directory = str(
+        # repo_path / "dataset/visual_tif/labels/labels_sem"
+        # repo_path / "dataset/visual_tif/artefact_neurons"
+        repo_path
+        / "dataset/axons/training/custom-training/labels"
+    )
+
+    # use these if not using validation_percent
+    config.validation_volume_directory = str(
+        # repo_path / "dataset/somatomotor/volumes"
+        repo_path
+        / "dataset/axons/validation/custom-validation/volumes"
+        # str(repo_path / "dataset/visual_tif/volumes")
+    )
+    config.validation_label_directory = str(
+        repo_path
+        / "dataset/axons/validation/custom-validation/labels"
+        # repo_path / "dataset/somatomotor/artefact_neurons"
+        # repo_path / "dataset/somatomotor/lab_sem"
+    )
+    # repo_path / "dataset/visual_tif/artefact_neurons"
+
+    config.model_info.out_channels = 3
+    config.learning_rate = 1e-3
+    # config.plot_training_inputs = True
+
+    save_folder = "results_multichannel_test"  # "results_one_channel"
+    config.results_path = str(repo_path / save_folder)
+    (repo_path / save_folder).mkdir(exist_ok=True)
+
+    config.sampling = True
+    config.num_samples = 5
+    config.max_epochs = 150
+
+    trainer = Trainer(config)
+    trainer.log_parameters()
+    trainer.train()

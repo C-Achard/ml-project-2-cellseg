@@ -2,8 +2,8 @@ from monai.inferers import sliding_window_inference
 from monai.networks.nets import VNet
 
 
-def get_net():
-    return VNet()
+def get_net(out_channels=1):
+    return VNet(out_channels=out_channels)
 
 
 def get_weights_file():
