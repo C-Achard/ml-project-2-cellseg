@@ -338,3 +338,4 @@ def define_matplotlib_defaults():
     p["lines.markeredgecolor"] = "auto"
     p["lines.markerfacecolor"] = "auto"
     p["lines.markersize"] = 3
+
