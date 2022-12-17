@@ -7,7 +7,7 @@ from pathlib import Path
 import napari
 import sys
 
-sys.path.append(str(Path(__file__) / ".."))
+sys.path.append(str(Path(__file__) / "../../"))
 from post_processing import binary_watershed
 import scripts.make_artefact_labels as make_artefact_labels
 import time

@@ -4,7 +4,8 @@ import napari
 from tifffile import imread
 import matplotlib.pyplot as plt
 from pathlib import Path
-
+import sys
+sys.path.append(str(Path(__file__) / "../../"))
 from config import InferenceWorkerConfig
 from example import Inference
 from utils import dice_metric, normalize
@@ -19,8 +20,7 @@ if __name__ == "__main__":
     print(f"REPO PATH : {repo_path}")
 
     pred_conf = InferenceWorkerConfig()
-    # pred_conf.model_info.name = "SwinUNetR"
-    pred_conf.model_info.name = "VNet"
+    pred_conf.model_info.name = "SwinUNetR"
     pred_conf.weights_config.path = str(
         repo_path
         / f"results_multichannel_test/{pred_conf.model_info.name}_best_metric.pth"
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     pred_conf.image = imread(
         str(
             repo_path
-            / "dataset/axons/validation/custom-validation/volumes/volume_0.tif"
+            / "dataset/images_with_artefacts/cropped_crop_12022_12_16_14_17_56.tif"
         )
     )
 

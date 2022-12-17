@@ -9,7 +9,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from post_processing import binary_watershed
-
+from skimage.filters import threshold_otsu
 
 def map_labels(labels, artefacts):
     """Map the artefacts labels to the neurons labels.
@@ -53,6 +53,97 @@ def map_labels(labels, artefacts):
 
     return map_labels_existing, new_labels
 
+def make_labels(
+    path_image,
+    path_labels_out,
+    threshold_factor=1,
+    threshold_size=30,
+    label_value=1,
+    do_multi_label=True,
+    ):
+    """Detect nucleus. using a binary watershed algorithm.
+    Parameters
+    ----------
+    path_image : str
+        Path to image.
+    path_labels_out : str
+        Path of the output labelled image.
+    threshold_size : int, optional
+        Threshold for nucleus size, if the nucleus is smaller than this value it will be removed.
+    label_value : int, optional
+        Value to use for the label image.
+    do_multi_label : bool, optional
+        If True, each different nucleus will be labelled as a different value.
+    Returns
+    -------
+    ndarray
+        Label image with nucleus labelled with 1 value per nucleus.
+    """
+
+    image = imread(path_image)
+    image=(image-np.min(image))/(np.max(image)-np.min(image))
+    
+    threshold_brightness = threshold_otsu(image)*threshold_factor
+    image_contrasted=np.where(image>threshold_brightness,image,0)
+
+    labels = ndimage.label(image_contrasted)[0]
+
+
+    labels=select_artefacts_by_size(labels, min_size=threshold_size,is_labeled=True)
+
+    if not do_multi_label:
+        labels = np.where(labels > 0, label_value, 0)
+    
+    
+    imwrite(path_labels_out, labels.astype(np.uint16))
+    imwrite(path_labels_out.replace(".tif", "_contrast.tif"), image_contrasted.astype(np.float32))
+
+def select_image_by_labels(path_image, path_labels, path_image_out,label_values):
+    """Select image by labels.
+    Parameters
+    ----------
+    path_image : str
+        Path to image.
+    path_labels : str
+        Path to labels.
+    path_image_out : str
+        Path of the output image.
+    label_values : list
+        List of label values to select.
+    """
+    image = imread(path_image)
+    labels = imread(path_labels)
+    image=np.where(np.isin(labels,label_values),image,0)
+    imwrite(path_image_out, image.astype(np.float32))
+
+#select the smalles cube that contains all the none zero pixel of an 3d image
+def get_bounding_box(img):
+    height = np.any(img, axis=(0, 1))
+    rows = np.any(img, axis=(0, 2))
+    cols = np.any(img, axis=(1, 2))
+
+    xmin, xmax = np.where(cols)[0][[0, -1]]
+    ymin, ymax = np.where(rows)[0][[0, -1]]
+    zmin, zmax = np.where(height)[0][[0, -1]]
+    return xmin, xmax, ymin, ymax, zmin, zmax
+
+#crop the image
+def crop_image(img):
+    xmin, xmax, ymin, ymax, zmin, zmax = get_bounding_box(img)
+    return img[xmin:xmax, ymin:ymax, zmin:zmax]
+
+def crop_image_path(path_image, path_image_out):
+    """Crop image.
+    Parameters
+    ----------
+    path_image : str
+        Path to image.
+    path_image_out : str
+        Path of the output image.
+    """
+    image = imread(path_image)
+    image=crop_image(image)
+    imwrite(path_image_out, image.astype(np.float32))
 
 def make_artefact_labels(
     image,
@@ -154,6 +245,8 @@ def select_artefacts_by_size(artefacts, min_size, is_labeled=False):
         Label image with artefacts labelled as 1.
     min_size : int, optional
         Minimum size of artefacts to keep
+    is_labeled : bool, optional
+        If True, the artefacts are already labelled.
     Returns
     -------
     ndarray
@@ -166,11 +259,10 @@ def select_artefacts_by_size(artefacts, min_size, is_labeled=False):
         labels = artefacts
 
     # remove the small components
-    for i in np.unique(labels):
-        if i != 0:
-            if np.sum(labels == i) < min_size:
-                artefacts = np.where(labels == i, 0, artefacts)
-
+    labels_i, counts = np.unique(labels, return_counts=True)
+    labels_i=labels_i[counts>min_size]
+    labels_i=labels_i[labels_i>0]
+    artefacts = np.where(np.isin(labels, labels_i), labels, 0)
     return artefacts
 
 
