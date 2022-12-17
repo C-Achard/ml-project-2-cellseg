@@ -11,7 +11,7 @@ class SoftNCutsLoss(nn.Module):
         o_x (scalar): scale of the gaussian kernel of pixels spacial distance.
         radius (scalar): radius of pixels for which we compute the weights
     """
-    def __init__(self, data_shape, o_i=..., o_x=..., radius=None):
+    def __init__(self, data_shape, o_i, o_x, radius=None):
         super(SoftNCutsLoss, self).__init__()
         self.o_i = o_i
         self.o_x = o_x
