@@ -8,7 +8,7 @@ class WNet(nn.Module):
     It first encodes the input image into a latent space using the U-Net UEncoder, then decodes it back to the original image using the U-Net UDecoder.
     """
 
-    def __init__(self, in_channels=1, out_channels=3, num_classes=1):
+    def __init__(self, in_channels=1, out_channels=1, num_classes=2):
         super(WNet, self).__init__()
         self.encoder = UNet(in_channels, num_classes)
         self.sm = nn.Softmax(dim=1)

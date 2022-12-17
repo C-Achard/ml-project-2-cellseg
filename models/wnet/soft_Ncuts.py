@@ -7,8 +7,8 @@ class SoftNCutsLoss(nn.Module):
     
     Args:
         data_shape (H, W, D): shape of the images as a tuple. 
-        o_i (scalar): weight for the distance of pixels in brightness.
-        o_x (scalar): weight for the distance of pixels in space.
+        o_i (scalar): scale of the gaussian kernel of pixels brightness.
+        o_x (scalar): scale of the gaussian kernel of pixels spacial distance.
         radius (scalar): radius of pixels for which we compute the weights
     """
     def __init__(self, data_shape, o_i=..., o_x=..., radius=None):
