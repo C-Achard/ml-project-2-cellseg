@@ -96,6 +96,7 @@ class Trainer:
 
         self.loss_values = []
         self.validation_values = []
+        self.validation_loss_values = []
         self.df = None
 
         if self.config.model_info.out_channels > 1:
@@ -124,6 +125,9 @@ class Trainer:
                 "loss": self.loss_values,
                 "validation": fill_list_in_between(
                     self.validation_values, self.val_interval - 1, ""
+                )[: len(size_column)],
+                "validation_loss": fill_list_in_between(
+                    self.validation_loss_values, self.val_interval - 1, ""
                 )[: len(size_column)],
             }
         )
@@ -208,6 +212,7 @@ class Trainer:
         model = torch.nn.DataParallel(model).to(self.device)
 
         epoch_loss_values = []
+        val_epoch_loss_values = []
         val_metric_values = []
 
         if self.validation_percent is not None:
@@ -366,7 +371,7 @@ class Trainer:
             model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
         )
         scheduler = ReduceLROnPlateau(
-            optimizer, "max", patience=7, factor=0.5, verbose=True
+            optimizer, "max", patience=10, factor=0.5, verbose=True
         )
         # scheduler = torch.cuda.amp.GradScaler()
 
@@ -427,6 +432,7 @@ class Trainer:
 
             model.train()
             epoch_loss = 0
+            val_epoch_loss = 0
             step = 0
 
             for batch_data in train_loader:
@@ -519,6 +525,10 @@ class Trainer:
                         val_loss = self.loss_function(val_outputs, ohe_val_labels)
                         # wandb.log({"validation loss": val_loss.detach().item()})
                         logger.info(f"Validation loss: {val_loss.detach().item():.4f}")
+                        epoch_loss += val_loss.detach().item()
+                        val_epoch_loss /= step
+                        val_epoch_loss_values.append(val_epoch_loss)
+                        self.validation_loss_values.append(val_epoch_loss)
 
                         pred = decollate_batch(val_outputs)
 
@@ -541,6 +551,7 @@ class Trainer:
                             post_label = AsDiscrete(
                                 to_onehot=self.out_channels
                             )  # , n_classes=2)
+
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
@@ -561,9 +572,10 @@ class Trainer:
                             dice_metric_only_cells(y_pred=val_outputs, y=val_labels)
 
                     metric = dice_metric.aggregate().detach().item()
+                    self.validation_values.append(metric)
+                    metric += val_epoch_loss_values
                     scheduler.step(metric)
                     # wandb.log({"dice metric validation": metric})
-                    self.validation_values.append(metric)
                     dice_metric.reset()
 
                     if self.compute_instance_boundaries:
@@ -670,16 +682,16 @@ if __name__ == "__main__":
     # repo_path / "dataset/visual_tif/artefact_neurons"
 
     config.model_info.out_channels = 3
-    config.learning_rate = 1e-3
+    config.learning_rate = 1e-1
     # config.plot_training_inputs = True
 
-    save_folder = "results_multichannel_test"  # "results_one_channel"
+    save_folder = "results_multichannel_test_lr"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
-    config.num_samples = 5
-    config.max_epochs = 150
+    config.num_samples = 20
+    config.max_epochs = 20
 
     trainer = Trainer(config)
     trainer.log_parameters()

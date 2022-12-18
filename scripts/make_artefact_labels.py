@@ -230,7 +230,7 @@ def make_artefact_labels(
         artefacts, min_size=neurone_size_percentile, is_labeled=True
     )
 
-    # relable with the label value if the artefacts are not multi label
+    # relabel with the label value if the artefacts are not multi label
     if not do_multi_label:
         artefacts = np.where(artefacts > 0, label_value, artefacts)
 

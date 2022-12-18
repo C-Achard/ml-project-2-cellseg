@@ -23,7 +23,9 @@ if __name__ == "__main__":
     pred_conf.model_info.name = "SwinUNetR"
     pred_conf.weights_config.path = str(
         repo_path
-        / f"results_multichannel_test/{pred_conf.model_info.name}_best_metric.pth"
+        / "results"
+        # / f"results_augmented_lr2/{pred_conf.model_info.name}_best_metric.pth"
+        / f"results_augmented_lr2/{pred_conf.model_info.name}_checkpoint.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = 3
@@ -38,11 +40,14 @@ if __name__ == "__main__":
     pred_conf.results_path = str(repo_path / "test")
     Path(pred_conf.results_path).mkdir(exist_ok=True)
 
-    # pred_conf.image = imread(str(repo_path / "dataset/visual_tif/volumes/testing_images.tif"))
+    # pred_conf.image = imread(str(repo_path / "dataset/visual_tif/volumes/images.tif"))
     pred_conf.image = imread(
         str(
             repo_path
-            / "dataset/images_with_artefacts/cropped_crop_12022_12_16_14_17_56.tif"
+            # / "dataset/somatomotor/augmented/c1images_with_artefact.tif"
+            / "dataset/visual_tif/volumes/images.tif"
+            # / "dataset/axons/validation/validation-set/volumes/volume-0.tiff"
+            # / "dataset/images_with_artefacts/cropped_crop_12022_12_16_14_17_56.tif"
         )
     )
 
@@ -73,3 +78,10 @@ if __name__ == "__main__":
     # viewer.add_image(Activations(softmax=True)(result).numpy(), name="softmax", colormap="inferno")
 
     napari.run()
+
+    # TODO(cyril) :
+    # - test generalized Dice
+    # - test new artifacts
+    # - test much longer training
+    # - test larger LR
+

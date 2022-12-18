@@ -17,14 +17,14 @@ from tqdm import tqdm
 import threading
 
 
-def relable_non_unique_i(label, save_path, go_fast=False):
-    """relable the image labelled with different label for each neuron and save it in the save_path location
+def relabel_non_unique_i(label, save_path, go_fast=False):
+    """relabel the image labelled with different label for each neuron and save it in the save_path location
     Parameters
     ----------
     label : np.array
         the label image
     save_path : str
-        the path to save the relabled image
+        the path to save the relabeld image
     """
     value_label = 0
     new_labels = np.zeros_like(label)
@@ -119,8 +119,8 @@ def ask_labels(unique_artefact):
     returns = [i_labels_to_add_tmp]
 
 
-def relable(image_path, label_path, go_fast=False, check_for_unicity=True, delay=0.3):
-    """relable the image labelled with different label for each neuron and save it in the save_path location
+def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay=0.3):
+    """relabel the image labelled with different label for each neuron and save it in the save_path location
     Parameters
     ----------
     label_path : str
@@ -132,17 +132,17 @@ def relable(image_path, label_path, go_fast=False, check_for_unicity=True, delay
     initial_label_path = label_path
     if check_for_unicity:
         # check if the label are unique
-        new_label_path = label_path[:-4] + "_relable_unique.tif"
-        map_labels_existing = relable_non_unique_i(
+        new_label_path = label_path[:-4] + "_relabel_unique.tif"
+        map_labels_existing = relabel_non_unique_i(
             label, new_label_path, go_fast=go_fast
         )
         print(
-            "visualize the relabled image in white the previous labels and in red the new labels"
+            "visualize the relabeld image in white the previous labels and in red the new labels"
         )
         visualize_map(map_labels_existing, label_path, new_label_path, delay=delay)
         label_path = new_label_path
     # detect artefact
-    print("detection of artefact (in process)")
+    print("detection of artefact (in progress)")
     image = imread(image_path)
     artefact = make_artefact_labels.make_artefact_labels(
         image, imread(label_path), do_multi_label=True
@@ -230,7 +230,7 @@ def create_connected_widget(old_label, new_label, map_labels_existing, delay=0.5
     worker.yielded.connect(lambda arg: modify_viewer(old_label, new_label, arg))
 
 
-def visualize_map(map_labels_existing, label_path, relable_path, delay=0.5):
+def visualize_map(map_labels_existing, label_path, relabel_path, delay=0.5):
     """visualize the map of the relabeling
     Parameters
     ----------
@@ -238,16 +238,16 @@ def visualize_map(map_labels_existing, label_path, relable_path, delay=0.5):
         the list of the relabeling
     """
     label = imread(label_path)
-    relable = imread(relable_path)
+    relabel = imread(relabel_path)
 
-    viewer = napari.Viewer()
+    viewer = napari.Viewer(ndisplay=3)
 
     old_label = viewer.add_labels(label, num_colors=2)
-    new_label = viewer.add_labels(relable, num_colors=2)
+    new_label = viewer.add_labels(relabel, num_colors=2)
     old_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0]])
     new_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 1.0]])
 
-    viewer.dims.ndisplay = 3
+    # viewer.dims.ndisplay = 3
     viewer.camera.angles = (180, 3, 50)
     viewer.camera.zoom = 1
 
@@ -258,19 +258,19 @@ def visualize_map(map_labels_existing, label_path, relable_path, delay=0.5):
     napari.run()
 
 
-def relable_non_unique_i_folder(folder_path, end_of_new_name):
-    """relable the image labelled with different label for each neuron and save it in the save_path location
+def relabel_non_unique_i_folder(folder_path, end_of_new_name="relabeled"):
+    """relabel the image labelled with different label for each neuron and save it in the save_path location
     Parameters
     ----------
     folder_path : str
         the path to the folder containing the label images
-    save_path : str
-        the path to save the relabled image
+    end_of_new_name : str
+        thename to add at the end of the relabled image
     """
     for file in Path.iterdir(folder_path):
-        if file.endswith(".tif"):
+        if file.suffix == ".tif":
             label = imread(str(Path(folder_path / file)))
-            relable_non_unique_i(
+            relabel_non_unique_i(
                 label, str(Path(folder_path / file[:-4] + end_of_new_name + ".tif"))
             )
 
@@ -279,10 +279,22 @@ if __name__ == "__main__":
 
     repo_path = Path(__file__).resolve().parents[1]
     file_path = str(Path(
-        repo_path / "dataset/visual_tif/labels/testing_im.tif"
+        # repo_path / "dataset/visual_tif/labels/images.tif"
+        repo_path / "dataset/somatomotor/labels/c5labels.tif"
     ))
     image_path = str(Path(
-        repo_path, "dataset/visual_tif/volumes/images.tif"
+        # repo_path, "dataset/visual_tif/volumes/images.tif"
+        repo_path, "dataset/somatomotor/volumes/c5images.tif"
     ))
+    #
+    # volume_directory = repo_path / "dataset/somatomotor"
+    # images_filepaths = sorted(
+    #     [str(file) for file in Path(volume_directory/ "volumes").glob("*.tif")]
+    # )
+    # labels_filepath = sorted(
+    #     [str(file) for file in Path(volume_directory / "labels").glob("*.tif")]
+    # )
+    # for image_path, file_path in zip(images_filepaths, labels_filepath):
+    relabel(image_path, file_path, check_for_unicity=True, go_fast=False)
 
-    relable(image_path, file_path, check_for_unicity=True, go_fast=False)
+    # relabel_non_unique_i_folder(repo_path/ "dataset/somatomotor/labels")
