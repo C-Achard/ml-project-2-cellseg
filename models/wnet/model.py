@@ -10,16 +10,14 @@ class WNet(nn.Module):
 
     def __init__(self, in_channels=1, out_channels=1, num_classes=2):
         super(WNet, self).__init__()
-        self.encoder = UNet(in_channels, num_classes)
-        self.sm = nn.Softmax(dim=1)
-        self.decoder = UNet(num_classes, out_channels)
+        self.encoder = UNet(in_channels, num_classes, encoder=True)
+        self.decoder = UNet(num_classes, out_channels, encoder=False)
 
     def forward(self, x):
         """Forward pass of the W-Net model."""
         enc = self.forward_encoder(x)
-        middle = self.sm(enc)
-        dec = self.forward_decoder(middle)
-        return middle, dec
+        dec = self.forward_decoder(enc)
+        return enc, dec
 
     def forward_encoder(self, x):
         """Forward pass of the encoder part of the W-Net model."""
@@ -35,7 +33,7 @@ class WNet(nn.Module):
 class UNet(nn.Module):
     """Half of the W-Net model, based on the U-Net architecture."""
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, encoder=True):
         super(UNet, self).__init__()
         self.in_b = InBlock(in_channels, 64)
         self.conv1 = Block(64, 128)
@@ -46,6 +44,10 @@ class UNet(nn.Module):
         self.deconv2 = Block(512, 256)
         self.deconv3 = Block(256, 128)
         self.out_b = OutBlock(128, out_channels)
+
+        self.sm = nn.Softmax(dim=1)
+        self.encoder = encoder
+
 
     def forward(self, x):
         """Forward pass of the U-Net model."""
@@ -66,6 +68,8 @@ class UNet(nn.Module):
         x = self.out_b(
             torch.cat([in_b, nn.ConvTranspose3d(128, 64, 2, stride=2)(x)], dim=1)
         )
+        if self.encoder:
+            x = self.sm(x)
         return x
 
 
