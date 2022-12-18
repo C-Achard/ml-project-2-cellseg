@@ -683,7 +683,7 @@ if __name__ == "__main__":
     # repo_path / "dataset/visual_tif/artefact_neurons"
 
     config.model_info.out_channels = 3
-    config.learning_rate = 1e-1
+    config.learning_rate = 1  # e-1
     config.use_val_loss_for_validation = True
     # config.plot_training_inputs = True
 
@@ -693,7 +693,7 @@ if __name__ == "__main__":
 
     config.sampling = True
     config.num_samples = 20
-    config.max_epochs = 20
+    config.max_epochs = 200
 
     trainer = Trainer(config)
     trainer.log_parameters()
