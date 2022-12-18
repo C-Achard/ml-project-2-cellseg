@@ -187,8 +187,9 @@ class TrainerConfig:
         self.sample_size = [64, 64, 64]
         self.do_augmentation = True
         self.deterministic = True
-        self.grad_norm_clip = 1.0
-        self.weight_decay = 1e-5
+        # self.grad_norm_clip = 1.0
+        # self.weight_decay = 1e-5
+        self.use_val_loss_for_validation = False
         self.compute_instance_boundaries = (
             False  # Change class loss weights in utils.get_loss TODO: choose in config
         )

@@ -573,7 +573,8 @@ class Trainer:
 
                     metric = dice_metric.aggregate().detach().item()
                     self.validation_values.append(metric)
-                    metric += val_epoch_loss_values
+                    if self.config.use_val_loss_for_validation:
+                        metric += val_epoch_loss_values
                     scheduler.step(metric)
                     # wandb.log({"dice metric validation": metric})
                     dice_metric.reset()
@@ -683,6 +684,7 @@ if __name__ == "__main__":
 
     config.model_info.out_channels = 3
     config.learning_rate = 1e-1
+    config.use_val_loss_for_validation = True
     # config.plot_training_inputs = True
 
     save_folder = "results_multichannel_test_lr"  # "results_one_channel"
