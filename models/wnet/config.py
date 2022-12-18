@@ -6,13 +6,15 @@ class Config:
 
         self.lr = 1e-4
 
-        self.o_i = 5        # find how to initialize this (learn it?)
-        self.o_x = 5        # find how to initialize this (learn it?)
-        self.radius = None
+        self.o_i = 10       # initialization as in the paper
+        self.o_x = 4        # initialization as in the paper
+        self.radius = None  # yields to a radius depending on the data shape
         
         self.sa = 5         # find how to initialize this (learn it?)
         self.sb = 5         # find how to initialize this (learn it?)
-        self.sg = 5         # find how to initialize this (learn it?)
+        self.sg = 1         # Initialization as in the paper
+        self.w1 = 1         # find how to initialize this (learn it?)
+        self.w2 = 1         # Initialization as in the paper
         self.n_iter = 5 
 
         self.num_epochs = 100

@@ -7,7 +7,7 @@ from pydensecrf.utils import (
 )
 
 
-def crf_batch(images, probs, sa, sb, sg, n_iter=5):
+def crf_batch(images, probs, sa, sb, sg, w1, w2, n_iter=5):
     """CRF post-processing step for the W-Net, applied to a batch of images.
 
     Args:
@@ -23,14 +23,14 @@ def crf_batch(images, probs, sa, sb, sg, n_iter=5):
 
     return np.stack(
         [
-            crf(images[i], probs[i], sa, sb, sg, n_iter=n_iter)
+            crf(images[i], probs[i], sa, sb, sg, w1, w2, n_iter=n_iter)
             for i in range(images.shape[0])
         ],
         axis=0,
     )
 
 
-def crf(image, prob, sa, sb, sg, n_iter=5):
+def crf(image, prob, sa, sb, sg, w1, w2, n_iter=5):
     """Implements the CRF post-processing step for the W-Net.
     Inspired by https://arxiv.org/abs/1210.5644, https://arxiv.org/abs/1606.00915 and https://arxiv.org/abs/1711.08506.
     Implemented using the pydensecrf library.
@@ -64,8 +64,8 @@ def crf(image, prob, sa, sb, sg, n_iter=5):
     compat = np.ones(prob.shape[0], dtype=np.float32) - np.diag(
         [1 for i in range(prob.shape[0])], dtype=np.float32
     )
-    d.addPairwiseEnergy(featsGaussian, compat=compat)
-    d.addPairwiseEnergy(featsBilateral, compat=compat)
+    d.addPairwiseEnergy(featsGaussian, compat=compat * w2)
+    d.addPairwiseEnergy(featsBilateral, compat=compat * w1)
 
     # Run inference
     Q = d.inference(n_iter)
