@@ -10,10 +10,10 @@ class Config:
         self.o_x = 4        # initialization as in the paper
         self.radius = None  # yields to a radius depending on the data shape
         
-        self.sa = 5         # find how to initialize this (learn it?)
-        self.sb = 5         # find how to initialize this (learn it?)
+        self.sa = 5         # According to the paper, should be learnt via grid search. However we miss ground truth for that
+        self.sb = 5         # According to the paper, should be learnt via grid search. However we miss ground truth for that
         self.sg = 1         # Initialization as in the paper
-        self.w1 = 1         # find how to initialize this (learn it?)
+        self.w1 = 1         # According to the paper, should be learnt via grid search. However we miss ground truth for that
         self.w2 = 1         # Initialization as in the paper
         self.n_iter = 5 
 
