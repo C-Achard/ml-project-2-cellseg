@@ -574,7 +574,7 @@ class Trainer:
                     metric = dice_metric.aggregate().detach().item()
                     self.validation_values.append(metric)
                     if self.config.use_val_loss_for_validation:
-                        metric += val_epoch_loss_values
+                        metric += val_epoch_loss
                     scheduler.step(metric)
                     # wandb.log({"dice metric validation": metric})
                     dice_metric.reset()
