@@ -24,8 +24,8 @@ if __name__ == "__main__":
     pred_conf.weights_config.path = str(
         repo_path
         / "results"
-        # / f"results_augmented_lr2/{pred_conf.model_info.name}_best_metric.pth"
-        / f"results_augmented_lr2/{pred_conf.model_info.name}_checkpoint.pth"
+        / f"results_augmented_lre1/{pred_conf.model_info.name}_best_metric.pth"
+        # / f"results_augmented_lre1/{pred_conf.model_info.name}_checkpoint.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = 3
