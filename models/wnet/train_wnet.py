@@ -116,6 +116,7 @@ def main():
 
             epoch_rec_loss += reconstruction_loss.item()
 
+        # Update the learning rate
         schedulerE.step(epoch_ncuts_loss)
         schedulerW.step(epoch_rec_loss)
 
