@@ -48,7 +48,6 @@ class UNet(nn.Module):
         self.sm = nn.Softmax(dim=1)
         self.encoder = encoder
 
-
     def forward(self, x):
         """Forward pass of the U-Net model."""
         in_b = self.in_b(x)

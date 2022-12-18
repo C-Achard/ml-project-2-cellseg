@@ -115,7 +115,7 @@ def main():
             optimizerW.step()
 
             epoch_rec_loss += reconstruction_loss.item()
-        
+
         schedulerE.step(epoch_ncuts_loss)
         schedulerW.step(epoch_rec_loss)
 
