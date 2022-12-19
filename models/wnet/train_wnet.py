@@ -24,12 +24,14 @@ from monai.transforms import (
 from utils import create_dataset_dict, get_padding_dim
 
 
-def main():
+def train():
     config = Config()
 
+    print("Initializing training...")
     ###################################################
     #               Getting the data                  #
     ###################################################
+    print("Getting the data")
 
     (data_shape, dataset) = get_dataset(config)
 
@@ -44,6 +46,7 @@ def main():
     ###################################################
     #               Training the model                #
     ###################################################
+    print("Initializing the model")
 
     CUDA = torch.cuda.is_available()
 
@@ -76,6 +79,9 @@ def main():
 
     model.train()
 
+    print("Training the model")
+    print("*" * 50)
+
     # Train the model
     for epoch in range(config.num_epochs):
         print(f"Epoch {epoch + 1} of {config.num_epochs}")
@@ -87,7 +93,7 @@ def main():
             image = batch["image"].cuda() if CUDA else batch["image"]
 
             # Forward pass
-            enc, dec = model(image)
+            enc = model.forward_encoder(image)
 
             # Compute the Ncuts loss
             Ncuts = criterionE(enc, image)
@@ -116,12 +122,22 @@ def main():
 
             epoch_rec_loss += reconstruction_loss.item()
 
+        print("Ncuts loss: ", epoch_ncuts_loss / len(dataloader))
+        print("Reconstruction loss: ", epoch_rec_loss / len(dataloader))
+
         # Update the learning rate
         schedulerE.step(epoch_ncuts_loss)
         schedulerW.step(epoch_rec_loss)
 
+        print("-" * 20)
+
+    print("Training finished")
+    print("*" * 50)
+
     # Save the model
-    torch.save(model.state_dict(), "models/wnet/wnet.pth")
+    if config.save_model:
+        print("Saving the model")
+        torch.save(model.state_dict(), config.save_model_path)
 
 
 def get_dataset(config):
@@ -174,4 +190,4 @@ def get_dataset(config):
 
 
 if __name__ == "__main__":
-    main()
+    train()
