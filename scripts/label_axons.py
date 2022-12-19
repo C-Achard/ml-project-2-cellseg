@@ -10,7 +10,8 @@ Author : Cyril Achard
 """
 
 def normalize(image):
-    return (image - image.mean()) / image.std()
+    # return (image - image.mean()) / image.std()
+    return (image - image.min()) / (image.max() - image.min())
 
 
 def labeL_axons(volume_directory):
@@ -22,7 +23,7 @@ def labeL_axons(volume_directory):
     images = [imread(image) for image in images_filepaths]
     images = [normalize(im) for im in images]
 
-    labels = [np.where(im > 0.99, True, False) for im in images]
+    labels = [np.where(im > 0.215, True, False) for im in images]
     labels = [remove_small_objects(lab, 70) for lab in labels]
     labels = [np.where(lab == 1, 2, 0) for lab in labels]
 

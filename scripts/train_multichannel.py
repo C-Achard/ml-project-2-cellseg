@@ -14,18 +14,17 @@ from monai.data import (
     CacheDataset,
     DataLoader,
     PatchDataset,
-    decollate_batch,
+    # decollate_batch,
     pad_list_data_collate,
 )
 
 from monai.losses import DiceLoss, DiceCELoss
 from monai.networks.utils import one_hot
-from monai.metrics import DiceMetric, ROCAUCMetric
+from monai.metrics import DiceMetric
 from monai.transforms import (
     Activations,
     AsDiscrete,
     Compose,
-    EnsureChannelFirst,
     EnsureChannelFirstd,
     EnsureTyped,
     EnsureType,
@@ -110,7 +109,6 @@ class Trainer:
         self.loss_values = []
         self.validation_values = []
         self.validation_loss_values = []
-        self.roc_auc_values = []
         self.df = None
 
         ######################
@@ -154,9 +152,6 @@ class Trainer:
                 )[: len(size_column)],
                 "validation_loss": fill_list_in_between(
                     self.validation_loss_values, self.val_interval - 1, ""
-                )[: len(size_column)],
-                "ROC:": fill_list_in_between(
-                    self.roc_auc_values, self.val_interval - 1, ""
                 )[: len(size_column)],
             }
         )
@@ -676,7 +671,7 @@ class Trainer:
                                 plot_tensor(lab[i], "Validation : Labels", i)
 
                         dice_metric(y_pred=post_outputs, y=post_labels)
-                        roc = ROCAUCMetric()(y_pred=post_outputs, y=post_labels)
+                        # TODO(cyril): Add confusion matrix
 
                     mean_roc = roc.aggregate().detach().item()
                     metric = dice_metric.aggregate().detach().item()
@@ -689,7 +684,6 @@ class Trainer:
                     scheduler.step(metric)
                     dice_metric.reset()
 
-                    self.roc_auc_values.append(mean_roc)
                     val_metric_values.append(metric)
 
                     try:
