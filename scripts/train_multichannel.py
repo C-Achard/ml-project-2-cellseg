@@ -176,7 +176,7 @@ class Trainer:
 
     def train(self):
         if self.config.deterministic:
-            set_determinism(seed=42, use_deterministic_algorithms=True)
+            set_determinism(seed=42)  # , use_deterministic_algorithms=True)
 
         if not self.sampling:
             first_volume = LoadImaged(keys=["image"])(self.train_data_dict[0])
@@ -525,7 +525,6 @@ class Trainer:
                         # wandb.log({"validation loss": val_loss.detach().item()})
                         logger.info(f"Validation loss: {val_loss.detach().item():.4f}")
                         val_epoch_loss += val_loss.detach().item()
-
 
                         pred = decollate_batch(val_outputs)
 
