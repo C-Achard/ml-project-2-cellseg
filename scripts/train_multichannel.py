@@ -20,7 +20,7 @@ from monai.losses import (
     DiceLoss,
 )
 from monai.networks.utils import one_hot
-from monai.metrics import DiceMetric
+from monai.metrics import DiceMetric, GeneralizedDiceScore
 from monai.transforms import (
     AsDiscrete,
     Compose,
@@ -39,11 +39,9 @@ from monai.transforms import (
 from monai.utils import set_determinism
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from config import TrainerConfig
 from utils import fill_list_in_between, create_dataset_dict, get_padding_dim
-from tifffile import imwrite
 
-from config import InferenceWorkerConfig, TrainerConfig
-from predict import Inference
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -375,10 +373,11 @@ class Trainer:
         )
         # scheduler = torch.cuda.amp.GradScaler()
 
-        dice_metric = DiceMetric(
-            include_background=True, reduction="mean", get_not_nans=False
-        )
-        if self.compute_instance_boundaries or self.out_channels > 1:
+        # dice_metric = DiceMetric(
+        #     include_background=True, reduction="mean", get_not_nans=False
+        # )
+        dice_metric = GeneralizedDiceScore(include_background=False)
+        if self.compute_instance_boundaries or self.out_channels > 2:
             dice_metric_only_cells = DiceMetric(
                 include_background=False, reduction="mean", get_not_nans=False
             )
@@ -683,7 +682,7 @@ if __name__ == "__main__":
     # repo_path / "dataset/visual_tif/artefact_neurons"
 
     config.model_info.out_channels = 3
-    config.learning_rate = 1  # e-1
+    config.learning_rate = 1e-2
     config.use_val_loss_for_validation = True
     # config.plot_training_inputs = True
 

@@ -83,5 +83,5 @@ if __name__ == "__main__":
     # - test generalized Dice
     # - test new artifacts
     # - test much longer training
-    # - test larger LR
+    # - test larger LR : mediocre results
 
