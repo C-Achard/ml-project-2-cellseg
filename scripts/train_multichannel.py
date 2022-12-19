@@ -20,7 +20,7 @@ from monai.losses import (
     DiceLoss,
 )
 from monai.networks.utils import one_hot
-from monai.metrics import DiceMetric, GeneralizedDiceScore
+from monai.metrics import DiceMetric
 from monai.transforms import (
     AsDiscrete,
     Compose,
@@ -373,10 +373,10 @@ class Trainer:
         )
         # scheduler = torch.cuda.amp.GradScaler()
 
-        # dice_metric = DiceMetric(
-        #     include_background=True, reduction="mean", get_not_nans=False
-        # )
-        dice_metric = GeneralizedDiceScore(include_background=False)
+        dice_metric = DiceMetric(
+            include_background=True, reduction="mean", get_not_nans=False
+        )
+        # dice_metric = GeneralizedDiceScore(include_background=False)
         if self.compute_instance_boundaries or self.out_channels > 2:
             dice_metric_only_cells = DiceMetric(
                 include_background=False, reduction="mean", get_not_nans=False
@@ -687,7 +687,7 @@ if __name__ == "__main__":
     config.use_val_loss_for_validation = True
     # config.plot_training_inputs = True
 
-    save_folder = "results_multichannel_test_lr"  # "results_one_channel"
+    save_folder = "results_multichannel_test_new_aug"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
