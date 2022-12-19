@@ -42,6 +42,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from config import TrainerConfig
 from utils import fill_list_in_between, create_dataset_dict, get_padding_dim
 
+from os import environ
+environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -176,7 +178,7 @@ class Trainer:
 
     def train(self):
         if self.config.deterministic:
-            set_determinism(seed=42)  # , use_deterministic_algorithms=True)
+            set_determinism(seed=42, use_deterministic_algorithms=True)
 
         if not self.sampling:
             first_volume = LoadImaged(keys=["image"])(self.train_data_dict[0])
