@@ -20,7 +20,7 @@ from monai.data import (
 
 from monai.losses import DiceLoss, DiceCELoss
 from monai.networks.utils import one_hot
-from monai.metrics import DiceMetric
+from monai.metrics import DiceMetric, ROCAUCMetric
 from monai.transforms import (
     Activations,
     AsDiscrete,
@@ -110,6 +110,7 @@ class Trainer:
         self.loss_values = []
         self.validation_values = []
         self.validation_loss_values = []
+        self.roc_auc_values = []
         self.df = None
 
         ######################
@@ -153,6 +154,9 @@ class Trainer:
                 )[: len(size_column)],
                 "validation_loss": fill_list_in_between(
                     self.validation_loss_values, self.val_interval - 1, ""
+                )[: len(size_column)],
+                "ROC:": fill_list_in_between(
+                    self.roc_auc_values, self.val_interval - 1, ""
                 )[: len(size_column)],
             }
         )
@@ -666,13 +670,15 @@ class Trainer:
                                     continue
                                 pred = post_outputs[0].cpu().numpy()
                                 # logger.info(f"Pred shape {pred.shape}")
-                                plot_tensor(pred[i], "Validation : pred", i)
+                                plot_tensor(pred[i], "Validation : Prediction", i)
                                 lab = post_labels[0].cpu().numpy()
                                 # logger.info(f"Lab shape {lab.shape}")
-                                plot_tensor(lab[i], "Validation : lab", i)
+                                plot_tensor(lab[i], "Validation : Labels", i)
 
                         dice_metric(y_pred=post_outputs, y=post_labels)
+                        roc = ROCAUCMetric()(y_pred=post_outputs, y=post_labels)
 
+                    mean_roc = roc.aggregate().detach().item()
                     metric = dice_metric.aggregate().detach().item()
                     val_epoch_loss /= step
                     val_epoch_loss_values.append(val_epoch_loss)
@@ -683,6 +689,7 @@ class Trainer:
                     scheduler.step(metric)
                     dice_metric.reset()
 
+                    self.roc_auc_values.append(mean_roc)
                     val_metric_values.append(metric)
 
                     try:
