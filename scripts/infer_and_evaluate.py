@@ -84,8 +84,10 @@ if __name__ == "__main__":
     napari.run()
 
     # TODO(cyril) :
-    # - test generalized Dice
+    # - train baseline
     # - test new artifacts
     # - test much longer training
-    # - test larger LR : mediocre results
+    # - test LR tuning
+    # - test GradScaler
+
 

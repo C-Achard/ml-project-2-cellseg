@@ -18,9 +18,7 @@ from monai.data import (
     pad_list_data_collate,
 )
 
-from monai.losses import (
-    DiceLoss, DiceCELoss
-)
+from monai.losses import DiceLoss, DiceCELoss
 from monai.networks.utils import one_hot
 from monai.metrics import DiceMetric
 from monai.transforms import (
@@ -44,9 +42,15 @@ from monai.utils import set_determinism
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from config import TrainerConfig
-from utils import fill_list_in_between, create_dataset_dict, get_padding_dim, plot_tensor
+from utils import (
+    fill_list_in_between,
+    create_dataset_dict,
+    get_padding_dim,
+    plot_tensor,
+)
 
 from os import environ
+
 environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 logger = logging.getLogger(__name__)
@@ -56,6 +60,7 @@ Adapted from code by Cyril Achard and Maxime Vidal
 Author : Cyril Achard
 Trains a model on several classes : can be artifacts or axons with our datasets
 """
+
 
 class Trainer:
     def __init__(
@@ -106,6 +111,13 @@ class Trainer:
         self.validation_values = []
         self.validation_loss_values = []
         self.df = None
+
+        ######################
+        # DEBUG
+        self.testing_interval = 20
+        self.plot_train = True
+        self.show_grad = True
+        self.plot_val = True
 
         if self.config.model_info.out_channels > 1:
             logger.info("Using SOFTMAX loss")
@@ -219,7 +231,7 @@ class Trainer:
         else:
             model = self.model_class.get_net(out_channels=self.out_channels)
 
-        model = torch.nn.DataParallel(model).to(self.device) # TODO(cyril) : revert
+        model = torch.nn.DataParallel(model).to(self.device)  # TODO(cyril) : revert
         # model = model.to(self.device)
 
         epoch_loss_values = []
@@ -462,7 +474,6 @@ class Trainer:
                 optimizer.zero_grad()
                 logits = self.model_class.get_output(model, inputs)
 
-
                 # logger.debug(f"Output shape : {logits.shape}")
                 # logger.debug(f"Label shape : {labels.shape}")
                 # out = logits.detach().cpu()
@@ -496,13 +507,13 @@ class Trainer:
                 #         ohe_labels[2, :,:,:] = lab
                 #     elif lab.max() == 1:
                 #         ohe_labels[1, :,:,:] = lab
-                plot_train = True
-                if plot_train:
+
+                if self.plot_train:
                     test_logits = logits.detach().cpu().numpy()
                     test_logits = Activations(softmax=True)(test_logits)
                     test_logits = np.where(test_logits > 0.9, 1, 0)
 
-                    if (epoch == 1 or epoch == 149) and step < 2:
+                    if (epoch + 1) % self.testing_interval == 0 and step < 4:
                         logger.info("Plotting training")
                         # logger.info(f"Logits shape {test_logits.shape}")
                         # logger.info(f"Labels shape {ohe_labels.shape}")
@@ -534,19 +545,21 @@ class Trainer:
                 )
                 loss.backward()
 
-                show_grad = True
-                if show_grad and (epoch == 1 or epoch == 149):
+                if self.show_grad and (epoch + 1) % self.testing_interval == 0:
                     grad_model = model.module if hasattr(model, "module") else model
                     # print(f"Out channels grad {model.out.conv[0].weight.grad}")
-                    print(f"Out channels shape {grad_model.out.conv[0].weight.grad.shape}")
+                    print(
+                        f"Out channels shape {grad_model.out.conv[0].weight.grad.shape}"
+                    )
                     for i in range(3):
                         print(f"CHANNEL {i}")
                         grad = torch.abs(grad_model.out.conv[0].weight.grad)
                         print(f"Out channel {i} shape {grad[i].shape}")
-                        print(f"Out channel {i} mean {grad[i].view(grad[i].size(0), -1).mean(1)}")
+                        print(
+                            f"Out channel {i} mean {grad[i].view(grad[i].size(0), -1).mean(1)}"
+                        )
                         # print(f"Out channel {i} min {grad[i].min()}")
                         # print(f"Out channel {i} max {grad[i].max()}")
-
 
                 optimizer.step()
                 epoch_loss += loss.detach().item()
@@ -586,6 +599,7 @@ class Trainer:
 
                         # pred = decollate_batch(val_outputs)
                         # labs = decollate_batch(val_labels)
+
                         # print(f"VAL LABELS SHAPE {val_labels.shape}")
                         # print(f"LABS SHAPE {len(labs)}")
                         # print(f"LABS 0 SHAPE {labs[0].shape}")
@@ -597,13 +611,17 @@ class Trainer:
                                     AsDiscrete(
                                         argmax=True,
                                     ),  # , n_classes=2
-                                    partial(one_hot, num_classes=self.out_channels, dim=0),
+                                    partial(
+                                        one_hot, num_classes=self.out_channels, dim=0
+                                    ),
                                 ]
                             )
 
-                            post_label = Compose([
-                                # partial(one_hot, num_classes=self.config.model_info.out_channels, dim=0)
-                            ])
+                            post_label = Compose(
+                                [
+                                    # partial(one_hot, num_classes=self.config.model_info.out_channels, dim=0)
+                                ]
+                            )
 
                             # post_label = AsDiscrete(
                             #     to_onehot=self.out_channels
@@ -620,15 +638,20 @@ class Trainer:
                         #     print(f"RAW LABEL SHAPE {raw_label[0].shape}")
                         #     plot_tensor(raw_label[0], "raw_label", 0)
 
-                        post_outputs = [post_pred(res_tensor) for res_tensor in val_outputs]
+                        post_outputs = [
+                            post_pred(res_tensor) for res_tensor in val_outputs
+                        ]
                         post_labels = [
                             # post_label(res_tensor) for res_tensor in ohe_val_labels
-                            res_tensor for res_tensor in ohe_val_labels
+                            res_tensor
+                            for res_tensor in ohe_val_labels
                         ]
 
-                        plot_val = True
-
-                        if (epoch==1 or epoch==149) and plot_val  and val_step<10 :
+                        if (
+                            (epoch + 1) % self.testing_interval == 0
+                            and self.plot_val
+                            and val_step < 10
+                        ):
                             logger.info("Plotting validation")
                             # logger.info(f"Val inputs shape {val_outputs[0].shape}")
                             # logger.info(f"Val labels shape {val_labels[0].shape}")
@@ -754,7 +777,6 @@ if __name__ == "__main__":
         # / "dataset/visual_tif/labels/labels_sem"
         # repo_path / "dataset/somatomotor/lab_sem"
     )
-
 
     config.model_info.out_channels = 3
     config.learning_rate = 1e-4
