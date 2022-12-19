@@ -524,10 +524,8 @@ class Trainer:
                         val_loss = self.loss_function(val_outputs, ohe_val_labels)
                         # wandb.log({"validation loss": val_loss.detach().item()})
                         logger.info(f"Validation loss: {val_loss.detach().item():.4f}")
-                        epoch_loss += val_loss.detach().item()
-                        val_epoch_loss /= step
-                        val_epoch_loss_values.append(val_epoch_loss)
-                        self.validation_loss_values.append(val_epoch_loss)
+                        val_epoch_loss += val_loss.detach().item()
+
 
                         pred = decollate_batch(val_outputs)
 
@@ -571,6 +569,9 @@ class Trainer:
                             dice_metric_only_cells(y_pred=val_outputs, y=val_labels)
 
                     metric = dice_metric.aggregate().detach().item()
+                    val_epoch_loss /= step
+                    val_epoch_loss_values.append(val_epoch_loss)
+                    self.validation_loss_values.append(val_epoch_loss)
                     self.validation_values.append(metric)
                     if self.config.use_val_loss_for_validation:
                         metric += val_epoch_loss
