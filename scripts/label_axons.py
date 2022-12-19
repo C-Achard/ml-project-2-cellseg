@@ -4,6 +4,10 @@ from pathlib import Path
 from tifffile import imread, imwrite
 from skimage.morphology import remove_small_objects
 
+"""
+New code to label axons in the TRAILMAP dataset
+Author : Cyril Achard
+"""
 
 def normalize(image):
     return (image - image.mean()) / image.std()

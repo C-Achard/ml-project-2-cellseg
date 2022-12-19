@@ -11,6 +11,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from post_processing import binary_watershed
 from skimage.filters import threshold_otsu
 
+"""
+New code by Yves Paychere
+Creates labels of artifacts in an image based on existing labels of neurons
+"""
+
 def map_labels(labels, artefacts):
     """Map the artefacts labels to the neurons labels.
     Parameters

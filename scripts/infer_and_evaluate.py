@@ -10,8 +10,11 @@ from config import InferenceWorkerConfig
 from example import Inference
 from utils import dice_metric, normalize
 from napari.viewer import Viewer
-
-# file to run model on a folder and evaluate the results
+"""
+Previous code by Cyril Achard and Maxime Vidal
+Adapted by Cyril
+Runs inference on a single image and evaluate the results
+"""
 
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
@@ -25,7 +28,7 @@ if __name__ == "__main__":
         repo_path
         / "results"
         # / f"results_augmented_lr2/{pred_conf.model_info.name}_best_metric.pth"
-        / f"results_augmented_lr2/{pred_conf.model_info.name}_checkpoint.pth"
+        / f"results_multichannel_test_new_aug/{pred_conf.model_info.name}_checkpoint.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = 3
@@ -44,8 +47,8 @@ if __name__ == "__main__":
     pred_conf.image = imread(
         str(
             repo_path
-            # / "dataset/somatomotor/augmented/c1images_with_artefact.tif"
-            / "dataset/visual_tif/volumes/images.tif"
+            / "dataset/somatomotor/augmented/c1images_with_artefact.tif"
+            # / "dataset/visual_tif/volumes/images.tif"
             # / "dataset/axons/validation/validation-set/volumes/volume-0.tiff"
             # / "dataset/images_with_artefacts/cropped_crop_12022_12_16_14_17_56.tif"
         )

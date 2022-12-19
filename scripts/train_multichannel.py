@@ -47,7 +47,11 @@ environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
-
+"""
+Adapted from code by Cyril Achard and Maxime Vidal
+Author : Cyril Achard
+Trains a model on several classes : can be artifacts or axons with our datasets
+"""
 
 class Trainer:
     def __init__(
@@ -91,7 +95,7 @@ class Trainer:
         self.plot_training_inputs = self.config.plot_training_inputs
         self.train_files = []
         self.val_files = []
-        self.compute_instance_boundaries = self.config.compute_instance_boundaries
+        # self.compute_instance_boundaries = self.config.compute_instance_boundaries
         self.deterministic = self.config.deterministic
 
         self.loss_values = []
@@ -170,9 +174,6 @@ class Trainer:
 
         if self.weights_path is not None:
             logger.info(f"Using weights from : {self.weights_path}")
-
-        if self.compute_instance_boundaries:
-            logger.info(f"Computing instance boundaries")
 
         logger.info("-" * 20)
 
@@ -379,10 +380,6 @@ class Trainer:
             include_background=True, reduction="mean", get_not_nans=False
         )
         # dice_metric = GeneralizedDiceScore(include_background=False)
-        if self.compute_instance_boundaries or self.out_channels > 2:
-            dice_metric_only_cells = DiceMetric(
-                include_background=False, reduction="mean", get_not_nans=False
-            )
 
         best_metric = -1
         best_metric_epoch = -1
@@ -532,12 +529,7 @@ class Trainer:
 
                         labs = decollate_batch(val_labels)
 
-                        if self.compute_instance_boundaries:
-                            post_pred = AsDiscrete(
-                                argmax=True, to_onehot=3
-                            )  # , n_classes=3)
-                            post_label = AsDiscrete(to_onehot=3)  # , n_classes=3)
-                        elif self.out_channels > 1:
+                        if self.out_channels > 1:
                             post_pred = Compose(
                                 [
                                     # Activations(softmax=True),
@@ -559,16 +551,6 @@ class Trainer:
 
                         dice_metric(y_pred=val_outputs, y=val_labels)
 
-                        if self.compute_instance_boundaries:
-                            # or self.out_channels > 1:
-                            val_labels = [
-                                val_label[1, :, :, :] for val_label in val_labels
-                            ]
-                            val_outputs = [
-                                val_output[1, :, :, :] for val_output in val_outputs
-                            ]
-                            dice_metric_only_cells(y_pred=val_outputs, y=val_labels)
-
                     metric = dice_metric.aggregate().detach().item()
                     val_epoch_loss /= step
                     val_epoch_loss_values.append(val_epoch_loss)
@@ -577,18 +559,7 @@ class Trainer:
                     if self.config.use_val_loss_for_validation:
                         metric += val_epoch_loss
                     scheduler.step(metric)
-                    # wandb.log({"dice metric validation": metric})
                     dice_metric.reset()
-
-                    if self.compute_instance_boundaries:
-                        # or self.out_channels > 1:
-                        metric_cells = (
-                            dice_metric_only_cells.aggregate().detach().item()
-                        )
-                        # scheduler.step(metric_cells)
-                        # wandb.log({"dice metric only cells validation": metric_cells})
-                        dice_metric_only_cells.reset()
-                        logger.info(f"Dice mtric cells only : {metric_cells}")
 
                     val_metric_values.append(metric)
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-WEIGHTS_DIR = Path(__file__).parent.resolve() / Path("../models/pretrained")
+WEIGHTS_DIR = Path(__file__).parent.resolve() / Path("../../models/pretrained")
 logger = logging.getLogger(__name__)
 
 

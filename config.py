@@ -17,6 +17,12 @@ from models import model_TRAILMAP as TRAILMAP_MS
 from post_processing import binary_connected
 from post_processing import binary_watershed
 
+"""
+Original config file by Cyril Achard
+Updated for the project
+Contains all the settings for models training and inference
+"""
+
 MODEL_LIST = {
     "VNet": VNet,
     "SegResNet": SegResNet,

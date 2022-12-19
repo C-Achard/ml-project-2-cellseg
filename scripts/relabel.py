@@ -16,6 +16,10 @@ from napari.qt.threading import thread_worker
 from tqdm import tqdm
 import threading
 
+"""
+New code by Yves Paychère
+Fixes labels and allows to auto-detect artifacts and neurons based on a simple intenstiy threshold
+"""
 
 def relabel_non_unique_i(label, save_path, go_fast=False):
     """relabel the image labelled with different label for each neuron and save it in the save_path location

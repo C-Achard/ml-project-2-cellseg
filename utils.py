@@ -35,6 +35,10 @@ import numpy as np
 from skimage.measure import regionprops
 from dask_image.imread import imread
 
+"""
+Previous code by Maxime Vidal and Cyril Achard
+Utilities used throughout the project
+"""
 
 def normalize(image, threshold=0.9):
     """Thresholds then normalizes an image using the mean and standard deviation"""

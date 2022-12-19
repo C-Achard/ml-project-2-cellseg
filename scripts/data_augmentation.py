@@ -3,6 +3,11 @@ import numpy as np
 import random
 import os
 
+"""
+New code by Yves Paychère
+Adds artifacts to images to make training more challenging
+"""
+
 def add_artefact(path_image,path_label,path_artefact_image,path_out,min_x=0,seed=1):
     """
     Add artefact to image

@@ -36,6 +36,11 @@ from predict import Inference
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 
+"""
+Demo of training/inference by Cyril Achard
+Adapted from previous code by Maxime Vidal and Cyril Achard
+"""
+
 
 class Trainer:
     def __init__(

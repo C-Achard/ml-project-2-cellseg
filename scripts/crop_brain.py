@@ -6,6 +6,11 @@ from utils import read_tiff_stack_labels
 import numpy as np
 from pathlib import Path
 
+"""
+Code by Cyril Achard and Maxime Vidal
+Updated by Cyril
+Made to crop the brain in several smaller images due to large size
+"""
 
 def split_image_n(n, image_path):
     """

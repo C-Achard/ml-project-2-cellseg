@@ -37,6 +37,10 @@ from utils import get_loss, create_dataset_dict, get_padding_dim
 
 logger = logging.getLogger(__name__)
 
+"""
+Original code from Maxime Vidal and Cyril Achard
+Trains a model
+"""
 
 class Trainer:
     def __init__(

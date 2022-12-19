@@ -11,18 +11,16 @@ from monai.transforms import (
     AsDiscrete,
     AddChannel,
     Compose,
-    EnsureChannelFirst,
     EnsureType,
     ToTensor,
     Zoom,
-    ScaleIntensityRange,
 )
 from tifffile import imwrite
 
 from config import InferenceWorkerConfig
 from config import WEIGHTS_PATH
 from post_processing import binary_watershed, binary_connected
-from scripts.weights_download import WeightsDownloader
+from scripts.old.weights_download import WeightsDownloader
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +28,11 @@ SWIN = "SwinUNetR"
 
 CONFIG_PATH = Path().absolute() / "cellseg3dmodule/inference_config.json"
 
+"""
+Previous code by Cyril Achard and Maxime Vidal
+Adapted by Cyril
+Runs inference
+"""
 
 class Inference:
     def __init__(
@@ -362,7 +365,7 @@ class Inference:
                 out = np.transpose(out, (2, 1, 0))
 
             if self.config.run_semantic_evaluation:
-                from evaluate_semantic import run_evaluation
+                from scripts.old.evaluate_semantic import run_evaluation
 
                 run_evaluation(out)
 
