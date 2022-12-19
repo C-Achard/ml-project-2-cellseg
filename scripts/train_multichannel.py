@@ -22,6 +22,7 @@ from monai.losses import (
 from monai.networks.utils import one_hot
 from monai.metrics import DiceMetric
 from monai.transforms import (
+    Activations,
     AsDiscrete,
     Compose,
     EnsureChannelFirstd,
@@ -210,7 +211,8 @@ class Trainer:
         else:
             model = self.model_class.get_net(out_channels=self.out_channels)
 
-        model = torch.nn.DataParallel(model).to(self.device)
+        # model = torch.nn.DataParallel(model).to(self.device) # TODO(cyril) : revert
+        model = model.to(self.device)
 
         epoch_loss_values = []
         val_epoch_loss_values = []
@@ -377,7 +379,7 @@ class Trainer:
         # scheduler = torch.cuda.amp.GradScaler()
 
         dice_metric = DiceMetric(
-            include_background=True, reduction="mean", get_not_nans=False
+            include_background=False, reduction="mean", get_not_nans=False
         )
         # dice_metric = GeneralizedDiceScore(include_background=False)
 
@@ -433,6 +435,7 @@ class Trainer:
             val_epoch_loss = 0
             step = 0
 
+            grads= []
             for batch_data in train_loader:
 
                 step += 1
@@ -451,6 +454,7 @@ class Trainer:
 
                 optimizer.zero_grad()
                 logits = self.model_class.get_output(model, inputs)
+
 
                 # logger.debug(f"Output shape : {logits.shape}")
                 # logger.debug(f"Label shape : {labels.shape}")
@@ -472,6 +476,7 @@ class Trainer:
                 #
                 # view = napari.viewer.Viewer()
                 #
+
                 # view.add_labels(labels[0, :,:,:,:].cpu().numpy().astype(dtype=np.int8), name="gt")
                 # view.add_labels(ohe_labels[0, 0, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 1")
                 # view.add_labels(ohe_labels[0, 1, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 2")
@@ -490,6 +495,24 @@ class Trainer:
                     ohe_labels,
                 )
                 loss.backward()
+
+                # print(f"Out channels grad {model.out.conv[0].weight.grad}")
+                print(f"Out channels shape {model.out.conv[0].weight.grad.shape}")
+                for i in range(3):
+                    print(f"CHANNEL {i}")
+                    grad = torch.abs(model.out.conv[0].weight.grad)
+                    print(f"Out channel {i} shape {grad[i].shape}")
+                    print(f"Out channel {i} mean {grad[i].view(grad[i].size(0), -1).mean(1)}")
+                    # print(f"Out channel {i} min {grad[i].min()}")
+                    # print(f"Out channel {i} max {grad[i].max()}")
+                # grads = torch.autograd.grad(self.loss_function(logits, ohe_labels), model.parameters()) # , is_grads_batched=True)
+                # print(f"LOGITS SHAPE {logits.shape}")
+                # print(f"LABELS SHAPE {ohe_labels.shape}")
+                # print(f"GRAD INFO: {len(grads)}")
+                # print(f"GRAD INFO: {grads[0].shape}")
+                # print(f"GRAD INFO: {grads[0].min()}")
+                # print(f"GRAD INFO: {grads[0].max()}")
+                # return None
                 optimizer.step()
 
                 epoch_loss += loss.detach().item()
@@ -532,24 +555,47 @@ class Trainer:
                         if self.out_channels > 1:
                             post_pred = Compose(
                                 [
-                                    # Activations(softmax=True),
-                                    AsDiscrete(
-                                        argmax=True, to_onehot=self.out_channels
-                                    )  # , n_classes=2)
+                                    Activations(softmax=True),
+                                    # AsDiscrete(
+                                    #     argmax=True, to_onehot=self.out_channels
+                                    # )  # , n_classes=2)
                                 ]
                             )
-                            post_label = AsDiscrete(
-                                to_onehot=self.out_channels
-                            )  # , n_classes=2)
+                            from functools import partial
+                            post_label = Compose([
+                                # AddChannel(),
+                                partial(one_hot, num_classes=self.out_channels)
+                            ])
+
+                            # post_label = AsDiscrete(
+                            #     to_onehot=self.out_channels
+                            # )  # , n_classes=2)
 
                         else:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
 
+                        [print(f"lab shape {lab.shape}") for lab in labs]
+
                         val_outputs = [post_pred(res_tensor) for res_tensor in pred]
                         val_labels = [post_label(res_tensor) for res_tensor in labs]
 
                         dice_metric(y_pred=val_outputs, y=val_labels)
+
+                        if epoch==3 or epoch==150:
+                            logger.info("Plotting validation")
+                            logger.info(f"Val inputs shape {val_outputs[0].shape}")
+                            logger.info(f"Val labels shape {val_labels[0].shape}")
+                            print("-----------------")
+                            logger.info(f"Val inputs min {val_outputs[0].min()}")
+                            logger.info(f"Val inputs max {val_outputs[0].max()}")
+                            logger.info(f"Val labels min {val_labels[0].min()}")
+                            logger.info(f"Val labels max {val_labels[0].max()}")
+
+                            view = napari.viewer.Viewer()
+                            view.add_image(val_outputs[0].cpu().numpy(),name="output")
+                            view.add_labels(val_labels[0].cpu().numpy().astype(np.int8))
+                            napari.run()
 
                     metric = dice_metric.aggregate().detach().item()
                     val_epoch_loss /= step
@@ -622,19 +668,20 @@ if __name__ == "__main__":
 
     config.val_interval = 2
 
-    config.batch_size = 10
+    config.batch_size = 2
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
 
     config.train_volume_directory = str(
-        # repo_path / "dataset/visual_tif/volumes"
+        # repo_path / "dataset/somatomotor/volumes"
         repo_path
         / "dataset/axons/training/custom-training/volumes"
     )
     config.train_label_directory = str(
         # repo_path / "dataset/visual_tif/labels/labels_sem"
         # repo_path / "dataset/visual_tif/artefact_neurons"
+        # repo_path / "dataset/somatomotor/lab_sem"
         repo_path
         / "dataset/axons/training/custom-training/labels"
     )
@@ -644,27 +691,29 @@ if __name__ == "__main__":
         # repo_path / "dataset/somatomotor/volumes"
         repo_path
         / "dataset/axons/validation/custom-validation/volumes"
+        # / "dataset/visual_tif/volumes"
         # str(repo_path / "dataset/visual_tif/volumes")
     )
     config.validation_label_directory = str(
         repo_path
         / "dataset/axons/validation/custom-validation/labels"
         # repo_path / "dataset/somatomotor/artefact_neurons"
+        # / "dataset/visual_tif/labels/labels_sem"
         # repo_path / "dataset/somatomotor/lab_sem"
     )
-    # repo_path / "dataset/visual_tif/artefact_neurons"
+
 
     config.model_info.out_channels = 3
     config.learning_rate = 1e-2
-    config.use_val_loss_for_validation = True
+    config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results_multichannel_test_new_aug"  # "results_one_channel"
+    save_folder = "results_multichannel_test_grad"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
-    config.num_samples = 20
+    config.num_samples = 5
     config.max_epochs = 200
 
     trainer = Trainer(config)

@@ -667,7 +667,7 @@ class Inference:
         if self.config.keep_on_cpu:
             dataset_device = "cpu"
         else:
-            dataset_device = self.config.device
+            dataset_device = self.device
 
         window_size = self.config.sliding_window_config.window_size
         window_overlap = self.config.sliding_window_config.window_overlap
@@ -677,7 +677,7 @@ class Inference:
             roi_size=window_size,
             sw_batch_size=1,
             predictor=model_output,
-            sw_device=self.config.device,
+            sw_device=self.device,
             device=dataset_device,
             overlap=window_overlap,
             progress=True,
@@ -735,11 +735,11 @@ class Inference:
                 model = model_class.get_net(
                     out_channels=self.config.model_info.out_channels
                 )
-            model = model.to(self.config.device)
+            model = model.to(self.device)
 
             self.log_parameters()
 
-            model.to(self.config.device)
+            model.to(self.device)
 
             if not post_process_config.thresholding.enabled:
                 post_process_transforms = EnsureType()
@@ -771,7 +771,7 @@ class Inference:
             model.load_state_dict(
                 torch.load(
                     weights_path,
-                    map_location=self.config.device,
+                    map_location=self.device,
                 )
             )
             self.log("Done")
