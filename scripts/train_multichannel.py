@@ -1,5 +1,7 @@
 import logging
 import warnings
+from functools import partial
+import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 import torch
@@ -17,7 +19,7 @@ from monai.data import (
 )
 
 from monai.losses import (
-    DiceLoss,
+    DiceLoss, DiceCELoss
 )
 from monai.networks.utils import one_hot
 from monai.metrics import DiceMetric
@@ -25,6 +27,7 @@ from monai.transforms import (
     Activations,
     AsDiscrete,
     Compose,
+    EnsureChannelFirst,
     EnsureChannelFirstd,
     EnsureTyped,
     EnsureType,
@@ -41,7 +44,7 @@ from monai.utils import set_determinism
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from config import TrainerConfig
-from utils import fill_list_in_between, create_dataset_dict, get_padding_dim
+from utils import fill_list_in_between, create_dataset_dict, get_padding_dim, plot_tensor
 
 from os import environ
 environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
@@ -106,8 +109,13 @@ class Trainer:
 
         if self.config.model_info.out_channels > 1:
             logger.info("Using SOFTMAX loss")
-            self.loss_function = DiceLoss(
+            # self.loss_function = DiceLoss(
+            #     softmax=True,
+            #     to_onehot_y=True  # removed here, done at model level to account for possible error with images with single label
+            # )
+            self.loss_function = DiceCELoss(
                 softmax=True,
+                lambda_dice=0.5,
                 # to_onehot_y=True
                 # removed here, done at model level to account for possible error with images with single label
             )
@@ -211,8 +219,8 @@ class Trainer:
         else:
             model = self.model_class.get_net(out_channels=self.out_channels)
 
-        # model = torch.nn.DataParallel(model).to(self.device) # TODO(cyril) : revert
-        model = model.to(self.device)
+        model = torch.nn.DataParallel(model).to(self.device) # TODO(cyril) : revert
+        # model = model.to(self.device)
 
         epoch_loss_values = []
         val_epoch_loss_values = []
@@ -273,16 +281,16 @@ class Trainer:
             )
             val_transforms = Compose(
                 [
-                    EnsureTyped(keys=["image", "label"]),
+                    # EnsureTyped(keys=["image", "label"]),
                     # Zoomd(keys=["image", "label"], zoom=[1, 1, 5], keep_size=True, ),
-                    ScaleIntensityRanged(
-                        keys=["image"],
-                        a_min=0,
-                        a_max=2000,
-                        b_min=0.0,
-                        b_max=1.0,
-                        clip=True,
-                    ),
+                    # ScaleIntensityRanged(
+                    #     keys=["image"],
+                    #     a_min=0,
+                    #     a_max=2000,
+                    #     b_min=0.0,
+                    #     b_max=1.0,
+                    #     clip=True,
+                    # ),
                 ]
             )
         else:
@@ -379,7 +387,7 @@ class Trainer:
         # scheduler = torch.cuda.amp.GradScaler()
 
         dice_metric = DiceMetric(
-            include_background=False, reduction="mean", get_not_nans=False
+            include_background=True, reduction="mean", get_not_nans=False
         )
         # dice_metric = GeneralizedDiceScore(include_background=False)
 
@@ -435,7 +443,6 @@ class Trainer:
             val_epoch_loss = 0
             step = 0
 
-            grads= []
             for batch_data in train_loader:
 
                 step += 1
@@ -489,6 +496,37 @@ class Trainer:
                 #         ohe_labels[2, :,:,:] = lab
                 #     elif lab.max() == 1:
                 #         ohe_labels[1, :,:,:] = lab
+                plot_train = True
+                if plot_train:
+                    test_logits = logits.detach().cpu().numpy()
+                    test_logits = Activations(softmax=True)(test_logits)
+                    test_logits = np.where(test_logits > 0.9, 1, 0)
+
+                    if (epoch == 1 or epoch == 149) and step < 2:
+                        logger.info("Plotting training")
+                        # logger.info(f"Logits shape {test_logits.shape}")
+                        # logger.info(f"Labels shape {ohe_labels.shape}")
+                        logger.info("-----------------")
+
+                        # view = napari.viewer.Viewer()
+                        # view.add_image(test_logits[0].cpu().numpy(), name="test_logits")
+                        # view.add_labels(ohe_labels[0].cpu().numpy().astype(np.int8), name="label")
+                        # napari.run()
+                        for j in range(self.config.batch_size):
+                            logger.info(f"Logits min {test_logits[j].min()}")
+                            logger.info(f"Logits max {test_logits[j].max()}")
+                            logger.info(f"Labels min {ohe_labels[j].min()}")
+                            logger.info(f"Labels max {ohe_labels[j].max()}")
+                            for i in range(self.out_channels):
+                                if i == 0:
+                                    continue
+                                log = test_logits[j][i]
+                                logger.debug(f"Train : Logits shape {log.shape}")
+                                plot_tensor(log, f"Train : batch {j} logits", i)
+
+                                labels_test = ohe_labels[j][i].detach().cpu().numpy()
+                                logger.debug(f"Labels test shape {labels_test.shape}")
+                                plot_tensor(labels_test, f"Train : batch {j} labels", i)
 
                 loss = self.loss_function(  # softmax is done by DiceLoss
                     logits,
@@ -496,25 +534,21 @@ class Trainer:
                 )
                 loss.backward()
 
-                # print(f"Out channels grad {model.out.conv[0].weight.grad}")
-                print(f"Out channels shape {model.out.conv[0].weight.grad.shape}")
-                for i in range(3):
-                    print(f"CHANNEL {i}")
-                    grad = torch.abs(model.out.conv[0].weight.grad)
-                    print(f"Out channel {i} shape {grad[i].shape}")
-                    print(f"Out channel {i} mean {grad[i].view(grad[i].size(0), -1).mean(1)}")
-                    # print(f"Out channel {i} min {grad[i].min()}")
-                    # print(f"Out channel {i} max {grad[i].max()}")
-                # grads = torch.autograd.grad(self.loss_function(logits, ohe_labels), model.parameters()) # , is_grads_batched=True)
-                # print(f"LOGITS SHAPE {logits.shape}")
-                # print(f"LABELS SHAPE {ohe_labels.shape}")
-                # print(f"GRAD INFO: {len(grads)}")
-                # print(f"GRAD INFO: {grads[0].shape}")
-                # print(f"GRAD INFO: {grads[0].min()}")
-                # print(f"GRAD INFO: {grads[0].max()}")
-                # return None
-                optimizer.step()
+                show_grad = True
+                if show_grad and (epoch == 1 or epoch == 149):
+                    grad_model = model.module if hasattr(model, "module") else model
+                    # print(f"Out channels grad {model.out.conv[0].weight.grad}")
+                    print(f"Out channels shape {grad_model.out.conv[0].weight.grad.shape}")
+                    for i in range(3):
+                        print(f"CHANNEL {i}")
+                        grad = torch.abs(grad_model.out.conv[0].weight.grad)
+                        print(f"Out channel {i} shape {grad[i].shape}")
+                        print(f"Out channel {i} mean {grad[i].view(grad[i].size(0), -1).mean(1)}")
+                        # print(f"Out channel {i} min {grad[i].min()}")
+                        # print(f"Out channel {i} max {grad[i].max()}")
 
+
+                optimizer.step()
                 epoch_loss += loss.detach().item()
                 logger.info(
                     f"* {step - 1}/{len(train_ds) // train_loader.batch_size}, "
@@ -528,7 +562,9 @@ class Trainer:
             if (epoch + 1) % self.val_interval == 0:
                 model.eval()
                 with torch.no_grad():
+                    val_step = 0
                     for val_data in val_loader:
+                        val_step += 1
                         val_inputs, val_labels = (
                             val_data["image"].to(self.device),
                             val_data["label"].to(self.device),
@@ -548,23 +584,25 @@ class Trainer:
                         logger.info(f"Validation loss: {val_loss.detach().item():.4f}")
                         val_epoch_loss += val_loss.detach().item()
 
-                        pred = decollate_batch(val_outputs)
-
-                        labs = decollate_batch(val_labels)
+                        # pred = decollate_batch(val_outputs)
+                        # labs = decollate_batch(val_labels)
+                        # print(f"VAL LABELS SHAPE {val_labels.shape}")
+                        # print(f"LABS SHAPE {len(labs)}")
+                        # print(f"LABS 0 SHAPE {labs[0].shape}")
 
                         if self.out_channels > 1:
                             post_pred = Compose(
                                 [
                                     Activations(softmax=True),
-                                    # AsDiscrete(
-                                    #     argmax=True, to_onehot=self.out_channels
-                                    # )  # , n_classes=2)
+                                    AsDiscrete(
+                                        argmax=True,
+                                    ),  # , n_classes=2
+                                    partial(one_hot, num_classes=self.out_channels, dim=0),
                                 ]
                             )
-                            from functools import partial
+
                             post_label = Compose([
-                                # AddChannel(),
-                                partial(one_hot, num_classes=self.out_channels)
+                                # partial(one_hot, num_classes=self.config.model_info.out_channels, dim=0)
                             ])
 
                             # post_label = AsDiscrete(
@@ -575,27 +613,42 @@ class Trainer:
                             post_pred = Compose(AsDiscrete(threshold=0.6), EnsureType())
                             post_label = EnsureType()
 
-                        [print(f"lab shape {lab.shape}") for lab in labs]
+                        # [logger.info(f"Pred shape {p.shape}") for p in pred]
+                        # [logger.info(f"lab shape {lab.shape}") for lab in labs]
+                        # print(f"VAL LABELS SHAPE {ohe_val_labels.shape}")
+                        # for raw_label in ohe_val_labels:
+                        #     print(f"RAW LABEL SHAPE {raw_label[0].shape}")
+                        #     plot_tensor(raw_label[0], "raw_label", 0)
 
-                        val_outputs = [post_pred(res_tensor) for res_tensor in pred]
-                        val_labels = [post_label(res_tensor) for res_tensor in labs]
+                        post_outputs = [post_pred(res_tensor) for res_tensor in val_outputs]
+                        post_labels = [
+                            # post_label(res_tensor) for res_tensor in ohe_val_labels
+                            res_tensor for res_tensor in ohe_val_labels
+                        ]
 
-                        dice_metric(y_pred=val_outputs, y=val_labels)
+                        plot_val = True
 
-                        if epoch==3 or epoch==150:
+                        if (epoch==1 or epoch==149) and plot_val  and val_step<10 :
                             logger.info("Plotting validation")
-                            logger.info(f"Val inputs shape {val_outputs[0].shape}")
-                            logger.info(f"Val labels shape {val_labels[0].shape}")
-                            print("-----------------")
-                            logger.info(f"Val inputs min {val_outputs[0].min()}")
-                            logger.info(f"Val inputs max {val_outputs[0].max()}")
-                            logger.info(f"Val labels min {val_labels[0].min()}")
-                            logger.info(f"Val labels max {val_labels[0].max()}")
+                            # logger.info(f"Val inputs shape {val_outputs[0].shape}")
+                            # logger.info(f"Val labels shape {val_labels[0].shape}")
+                            logger.info("-----------------")
+                            logger.info(f"Val inputs min {post_outputs[0].min()}")
+                            logger.info(f"Val inputs max {post_outputs[0].max()}")
+                            logger.info(f"Val labels min {post_labels[0].min()}")
+                            logger.info(f"Val labels max {post_labels[0].max()}")
 
-                            view = napari.viewer.Viewer()
-                            view.add_image(val_outputs[0].cpu().numpy(),name="output")
-                            view.add_labels(val_labels[0].cpu().numpy().astype(np.int8))
-                            napari.run()
+                            for i in range(self.out_channels):
+                                if i == 0:
+                                    continue
+                                pred = post_outputs[0].cpu().numpy()
+                                # logger.info(f"Pred shape {pred.shape}")
+                                plot_tensor(pred[i], "Validation : pred", i)
+                                lab = post_labels[0].cpu().numpy()
+                                # logger.info(f"Lab shape {lab.shape}")
+                                plot_tensor(lab[i], "Validation : lab", i)
+
+                        dice_metric(y_pred=post_outputs, y=post_labels)
 
                     metric = dice_metric.aggregate().detach().item()
                     val_epoch_loss /= step
@@ -668,7 +721,7 @@ if __name__ == "__main__":
 
     config.val_interval = 2
 
-    config.batch_size = 2
+    config.batch_size = 10
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
@@ -704,7 +757,7 @@ if __name__ == "__main__":
 
 
     config.model_info.out_channels = 3
-    config.learning_rate = 1e-2
+    config.learning_rate = 1e-4
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
@@ -713,9 +766,12 @@ if __name__ == "__main__":
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
-    config.num_samples = 5
-    config.max_epochs = 200
+    config.do_augmentation = False
+    config.num_samples = 25
+    config.max_epochs = 155
 
+    print(f"Saving to {config.results_path}")
     trainer = Trainer(config)
     trainer.log_parameters()
+
     trainer.train()

@@ -26,13 +26,13 @@ if __name__ == "__main__":
     pred_conf.model_info.name = "SwinUNetR"
     pred_conf.weights_config.path = str(
         repo_path
-        / "results"
+        # / "results"
         # / f"results_augmented_lr2/{pred_conf.model_info.name}_best_metric.pth"
-        # / f"results_multichannel_test/{pred_conf.model_info.name}_best_metric.pth"
-        / f"results_one_channel/{pred_conf.model_info.name}_best_metric.pth"
+        / f"results_multichannel_test_grad/{pred_conf.model_info.name}_checkpoint.pth"
+        # / f"results_multichannel_test_grad/{pred_conf.model_info.name}_best_metric.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
-    pred_conf.model_info.out_channels = 1
+    pred_conf.model_info.out_channels = 3
 
     pred_conf.model_info.model_input_size = 64
     pred_conf.post_process_config.thresholding.enabled = True
@@ -49,8 +49,8 @@ if __name__ == "__main__":
         str(
             repo_path
             # / "dataset/somatomotor/augmented/c1images_with_artefact.tif"
-            / "dataset/visual_tif/volumes/images.tif"
-            # / "dataset/axons/validation/validation-set/volumes/volume-0.tiff"
+            # / "dataset/visual_tif/volumes/images.tif"
+            / "dataset/axons/validation/validation-set/volumes/volume-0.tiff"
             # / "dataset/images_with_artefacts/cropped_crop_12022_12_16_14_17_56.tif"
         )
     )
@@ -78,8 +78,8 @@ if __name__ == "__main__":
     viewer.add_image(prob_gradient, name="prediction", colormap="hsv")
     viewer.add_image(pred_conf.image, name="image", colormap="inferno")
 
-    # from monai.transforms import Activations
-    # viewer.add_image(Activations(softmax=True)(result).numpy(), name="softmax", colormap="inferno")
+    from monai.transforms import Activations
+    viewer.add_image(Activations(softmax=True)(result).numpy(), name="softmax", colormap="inferno")
 
     napari.run()
 
