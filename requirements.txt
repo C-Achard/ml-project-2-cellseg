@@ -6,3 +6,4 @@ napari[all]
 scikit-image
 dask-image
 einops
+tifffile
