@@ -492,7 +492,7 @@ class Trainer:
                     batch_data["label"].to(self.device),
                 )
 
-                optimizer.zero_grad()
+                # optimizer.zero_grad()
                 logits = self.model_class.get_output(model, inputs)
                 if self.out_channels > 1:
                     ohe_labels = one_hot(
@@ -501,26 +501,26 @@ class Trainer:
                 else:
                     ohe_labels = labels
 
-                loss = self.loss_function(  # softmax is done by DiceLoss
-                    logits,
-                    ohe_labels,
-                )
-                loss.backward()
-                optimizer.step()
-                epoch_loss += loss.detach().item()
+                # loss = self.loss_function(  # softmax is done by DiceLoss
+                #     logits,
+                #     ohe_labels,
+                # )
+                # loss.backward()
+                # optimizer.step()
+                # epoch_loss += loss.detach().item()
 
-                # with torch.cuda.amp.autocast():
-                #     if self.out_channels > 1:
-                #         ohe_labels = one_hot(
-                #             labels, num_classes=self.config.model_info.out_channels
-                #         )
-                #     else:
-                #         ohe_labels = labels
-                #     logits = self.model_class.get_output(model, inputs)
-                #     loss = self.loss_function(  # softmax is done by DiceLoss
-                #         logits,
-                #         ohe_labels,
-                #     )
+                with torch.cuda.amp.autocast():
+                    if self.out_channels > 1:
+                        ohe_labels = one_hot(
+                            labels, num_classes=self.config.model_info.out_channels
+                        )
+                    else:
+                        ohe_labels = labels
+                    logits = self.model_class.get_output(model, inputs)
+                    loss = self.loss_function(  # softmax is done by DiceLoss
+                        logits,
+                        ohe_labels,
+                    )
 
                 if self.plot_train:
                     test_logits = logits.detach().cpu().numpy()
@@ -578,12 +578,12 @@ class Trainer:
                 # optimizer.step()
                 # epoch_loss += loss.detach().item()
 
-                # scaler.scale(loss).backward()
-                # epoch_loss += loss.detach().item()
-                # scaler.unscale_(optimizer)
-                # scaler.step(optimizer)
-                # scaler.update()
-                # optimizer.zero_grad()
+                scaler.scale(loss).backward()
+                epoch_loss += loss.detach().item()
+                scaler.unscale_(optimizer)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
 
                 logger.info(
                     f"* {step - 1}/{len(train_ds) // train_loader.batch_size}, "
@@ -778,40 +778,40 @@ if __name__ == "__main__":
     print(f"REPO PATH : {repo_path}")
 
     config.train_volume_directory = str(
-        # repo_path / "dataset/somatomotor/volumes"
-        repo_path
-        / "dataset/axons/training/custom-training/volumes"
+        repo_path / "dataset/somatomotor/augmented_volumes"
+        # repo_path
+        # / "dataset/axons/training/custom-training/volumes"
     )
     config.train_label_directory = str(
         # repo_path / "dataset/visual_tif/labels/labels_sem"
         # repo_path / "dataset/visual_tif/artefact_neurons"
-        # repo_path / "dataset/somatomotor/lab_sem"
-        repo_path
-        / "dataset/axons/training/custom-training/labels"
+        repo_path / "dataset/somatomotor/lab_sem"
+        # repo_path
+        # / "dataset/axons/training/custom-training/labels"
     )
 
     # use these if not using validation_percent
     config.validation_volume_directory = str(
         # repo_path / "dataset/somatomotor/volumes"
         repo_path
-        / "dataset/axons/validation/custom-validation/volumes"
-        # / "dataset/visual_tif/volumes"
+        # / "dataset/axons/validation/custom-validation/volumes"
+        / "dataset/visual_tif/volumes"
         # str(repo_path / "dataset/visual_tif/volumes")
     )
     config.validation_label_directory = str(
         repo_path
-        / "dataset/axons/validation/custom-validation/labels"
+        # / "dataset/axons/validation/custom-validation/labels"
         # repo_path / "dataset/somatomotor/artefact_neurons"
-        # / "dataset/visual_tif/labels/labels_sem"
+        / "dataset/visual_tif/labels_sem"
         # repo_path / "dataset/somatomotor/lab_sem"
     )
 
-    config.model_info.out_channels = 3
+    config.model_info.out_channels = 1
     config.learning_rate = 1e-4
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results/results_DiceCE_axons_no_scaler" # "results_multichannel"  # "results_one_channel"
+    save_folder = "results/results_DiceCE_monochannel_aug" # "results_multichannel"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
