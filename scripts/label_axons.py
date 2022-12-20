@@ -9,6 +9,7 @@ New code to label axons in the TRAILMAP dataset
 Author : Cyril Achard
 """
 
+
 def normalize(image):
     # return (image - image.mean()) / image.std()
     return (image - image.min()) / (image.max() - image.min())

@@ -6,6 +6,7 @@ from tifffile import imread, imwrite
 import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
+
 sys.path.append(str(Path(__file__) / "../../"))
 from config import InferenceWorkerConfig
 from example import Inference
@@ -13,22 +14,47 @@ from utils import dice_metric, normalize
 from evaluate_model_performance import evaluate_model_performance, save_as_csv
 from post_processing import binary_watershed
 from napari.viewer import Viewer
+
 """
 Previous code by Cyril Achard and Maxime Vidal
 Adapted by Cyril
 Runs inference on a single image and evaluate the results
 """
 
+
 def delete_big_instances(instance, threshold=1000):
     labels_i, counts = np.unique(instance, return_counts=True)
-    labels_i=labels_i[counts<threshold]
-    labels_i=labels_i[labels_i>0]
+    labels_i = labels_i[counts < threshold]
+    labels_i = labels_i[labels_i > 0]
     instance = np.where(np.isin(instance, labels_i), instance, 0)
     return instance
 
-def infer_and_evaluate(name_of_model="SwinUNetR",out_channels_number=1,folder="new_final",test_image_path="dataset_clean/visual_tif/volumes/0-visual.tif",ground_truth_path="dataset_clean/visual_tif/labels/testing_im_new_label.tif"):
+
+def infer_and_evaluate(
+    name_of_model="SwinUNetR",
+    out_channels_number=1,
+    folder="new_final",
+    test_image_path="dataset_clean/visual_tif/volumes/0-visual.tif",
+    ground_truth_path="dataset_clean/visual_tif/labels/testing_im_new_label.tif",
+):
+    """
+    Runs inference on a single image and evaluate the results
+    ------
+    Parameters
+    ----------
+    name_of_model : str
+        Name of the model to use
+    out_channels_number : int
+        Number of output channels (see mono or multi class in folder name)
+    folder : str
+        Name of the folder where the weights saved
+    test_image_path : str
+        Path to the image to test
+    ground_truth_path : str
+        Path to the ground truth labels
+    """
     logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.INFO  )
+    logging.basicConfig(level=logging.INFO)
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
 
@@ -76,7 +102,9 @@ def infer_and_evaluate(name_of_model="SwinUNetR",out_channels_number=1,folder="n
         pre_instance = AsDiscrete(argmax=True, to_onehot=True)(result)
     else:
         pre_instance = AsDiscrete(threshold=0.8)(result)
-    instance = binary_watershed(pre_instance, thres_seeding=0.95, thres_objects=0.1, thres_small=30)
+    instance = binary_watershed(
+        pre_instance, thres_seeding=0.95, thres_objects=0.1, thres_small=30
+    )
     instance = delete_big_instances(instance, threshold=1000)
     imwrite(str(repo_path / "test/Instance_labels.tif"), instance)
 
@@ -87,11 +115,15 @@ def infer_and_evaluate(name_of_model="SwinUNetR",out_channels_number=1,folder="n
     if ground_truth is not None:
         if pred_conf.model_info.out_channels > 1:
             logger.info(f"DICE METRIC : {dice_metric(ground_truth, result[1])}")
-            evaluation_stats = evaluate_model_performance(ground_truth, instance[1], visualize=do_visualize)
+            evaluation_stats = evaluate_model_performance(
+                ground_truth, instance[1], visualize=do_visualize
+            )
             # logger.info(f"MODEL PERFORMANCE : {}")
         else:
             logger.info(f"DICE METRIC : {dice_metric(ground_truth, result)}")
-            evaluation_stats = evaluate_model_performance(ground_truth, instance, visualize=do_visualize)
+            evaluation_stats = evaluate_model_performance(
+                ground_truth, instance, visualize=do_visualize
+            )
             # logger.info(f"MODEL PERFORMANCE : {evaluate_model_performance(ground_truth, instance, visualize=do_visualize)}")
         view.add_labels(ground_truth, name="ground truth")
         save_as_csv(evaluation_stats, str(repo_path / "test/evaluation_stats.csv"))
@@ -107,7 +139,7 @@ def infer_and_evaluate(name_of_model="SwinUNetR",out_channels_number=1,folder="n
 
     napari.run()
 
-    
+
 if __name__ == "__main__":
     infer_and_evaluate()
 
@@ -117,6 +149,3 @@ if __name__ == "__main__":
     # - test much longer training
     # - test LR tuning
     # - test GradScaler
-
-
-

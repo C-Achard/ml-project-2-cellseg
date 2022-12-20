@@ -12,6 +12,7 @@ Updated by Cyril
 Made to crop the brain in several smaller images due to large size
 """
 
+
 def split_image_n(n, image_path):
     """
     Split image into n equal parts using dask

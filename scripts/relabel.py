@@ -21,6 +21,7 @@ New code by Yves Paychère
 Fixes labels and allows to auto-detect artifacts and neurons based on a simple intenstiy threshold
 """
 
+
 def relabel_non_unique_i(label, save_path, go_fast=False):
     """relabel the image labelled with different label for each neuron and save it in the save_path location
     Parameters
@@ -282,14 +283,20 @@ def relabel_non_unique_i_folder(folder_path, end_of_new_name="relabeled"):
 if __name__ == "__main__":
 
     repo_path = Path(__file__).resolve().parents[1]
-    file_path = str(Path(
-        repo_path / "dataset/visual_tif/labels/testing_im.tif"
-        # repo_path / "dataset/somatomotor/labels/c5labels.tif"
-    ))
-    image_path = str(Path(
-        repo_path, "dataset/visual_tif/volumes/0-visual.tif"
-        # repo_path, "dataset/somatomotor/volumes/c5images.tif"
-    ))
+    file_path = str(
+        Path(
+            repo_path
+            / "dataset/visual_tif/labels/testing_im.tif"
+            # repo_path / "dataset/somatomotor/labels/c5labels.tif"
+        )
+    )
+    image_path = str(
+        Path(
+            repo_path,
+            "dataset/visual_tif/volumes/0-visual.tif"
+            # repo_path, "dataset/somatomotor/volumes/c5images.tif"
+        )
+    )
     #
     # volume_directory = repo_path / "dataset/somatomotor"
     # images_filepaths = sorted(

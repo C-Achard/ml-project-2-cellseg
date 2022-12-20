@@ -16,6 +16,7 @@ New code by Yves Paychere
 Creates labels of artifacts in an image based on existing labels of neurons
 """
 
+
 def map_labels(labels, artefacts):
     """Map the artefacts labels to the neurons labels.
     Parameters
@@ -58,6 +59,7 @@ def map_labels(labels, artefacts):
 
     return map_labels_existing, new_labels
 
+
 def make_labels(
     path_image,
     path_labels_out,
@@ -65,7 +67,7 @@ def make_labels(
     threshold_size=30,
     label_value=1,
     do_multi_label=True,
-    ):
+):
     """Detect nucleus. using a binary watershed algorithm.
     Parameters
     ----------
@@ -86,24 +88,26 @@ def make_labels(
     """
 
     image = imread(path_image)
-    image=(image-np.min(image))/(np.max(image)-np.min(image))
-    
-    threshold_brightness = threshold_otsu(image)*threshold_factor
-    image_contrasted=np.where(image>threshold_brightness,image,0)
+    image = (image - np.min(image)) / (np.max(image) - np.min(image))
+
+    threshold_brightness = threshold_otsu(image) * threshold_factor
+    image_contrasted = np.where(image > threshold_brightness, image, 0)
 
     labels = ndimage.label(image_contrasted)[0]
 
-
-    labels=select_artefacts_by_size(labels, min_size=threshold_size,is_labeled=True)
+    labels = select_artefacts_by_size(labels, min_size=threshold_size, is_labeled=True)
 
     if not do_multi_label:
         labels = np.where(labels > 0, label_value, 0)
-    
-    
-    imwrite(path_labels_out, labels.astype(np.uint16))
-    imwrite(path_labels_out.replace(".tif", "_contrast.tif"), image_contrasted.astype(np.float32))
 
-def select_image_by_labels(path_image, path_labels, path_image_out,label_values):
+    imwrite(path_labels_out, labels.astype(np.uint16))
+    imwrite(
+        path_labels_out.replace(".tif", "_contrast.tif"),
+        image_contrasted.astype(np.float32),
+    )
+
+
+def select_image_by_labels(path_image, path_labels, path_image_out, label_values):
     """Select image by labels.
     Parameters
     ----------
@@ -118,10 +122,11 @@ def select_image_by_labels(path_image, path_labels, path_image_out,label_values)
     """
     image = imread(path_image)
     labels = imread(path_labels)
-    image=np.where(np.isin(labels,label_values),image,0)
+    image = np.where(np.isin(labels, label_values), image, 0)
     imwrite(path_image_out, image.astype(np.float32))
 
-#select the smalles cube that contains all the none zero pixel of an 3d image
+
+# select the smalles cube that contains all the none zero pixel of an 3d image
 def get_bounding_box(img):
     height = np.any(img, axis=(0, 1))
     rows = np.any(img, axis=(0, 2))
@@ -132,10 +137,12 @@ def get_bounding_box(img):
     zmin, zmax = np.where(height)[0][[0, -1]]
     return xmin, xmax, ymin, ymax, zmin, zmax
 
-#crop the image
+
+# crop the image
 def crop_image(img):
     xmin, xmax, ymin, ymax, zmin, zmax = get_bounding_box(img)
     return img[xmin:xmax, ymin:ymax, zmin:zmax]
+
 
 def crop_image_path(path_image, path_image_out):
     """Crop image.
@@ -147,8 +154,9 @@ def crop_image_path(path_image, path_image_out):
         Path of the output image.
     """
     image = imread(path_image)
-    image=crop_image(image)
+    image = crop_image(image)
     imwrite(path_image_out, image.astype(np.float32))
+
 
 def make_artefact_labels(
     image,
@@ -208,7 +216,7 @@ def make_artefact_labels(
     artefacts = binary_watershed(
         image_contrasted, thres_seeding=0.9, thres_small=30, thres_objects=0.4
     )
-    
+
     if remove_true_labels:
         # evaluate where the artefacts are connected to the neurons
         # map the artefacts label to the neurons label
@@ -265,8 +273,8 @@ def select_artefacts_by_size(artefacts, min_size, is_labeled=False):
 
     # remove the small components
     labels_i, counts = np.unique(labels, return_counts=True)
-    labels_i=labels_i[counts>min_size]
-    labels_i=labels_i[labels_i>0]
+    labels_i = labels_i[counts > min_size]
+    labels_i = labels_i[labels_i > 0]
     artefacts = np.where(np.isin(labels, labels_i), labels, 0)
     return artefacts
 
