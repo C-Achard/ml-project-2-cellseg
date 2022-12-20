@@ -204,11 +204,12 @@ def make_artefact_labels(
     image_contrasted = (image_contrasted - np.min(image_contrasted)) / (
         np.max(image_contrasted) - np.min(image_contrasted)
     )
+    
 
     artefacts = binary_watershed(
-        image_contrasted, thres_seeding=0.9, thres_small=30, thres_objects=0.4
+        image_contrasted, thres_seeding=0.95, thres_small=15, thres_objects=0.4
     )
-    
+
     if remove_true_labels:
         # evaluate where the artefacts are connected to the neurons
         # map the artefacts label to the neurons label
@@ -231,6 +232,8 @@ def make_artefact_labels(
         # remove the smallest connected components
         neurone_size_percentile = np.percentile(sizes, 95)
 
+    # select the artefacts that are bigger than the percentile
+    
     artefacts = select_artefacts_by_size(
         artefacts, min_size=neurone_size_percentile, is_labeled=True
     )
@@ -379,6 +382,7 @@ def create_artefact_labels_from_folder(
 
 if __name__ == "__main__":
 
+
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
     paths = [
@@ -397,3 +401,4 @@ if __name__ == "__main__":
             threshold_artefact_size_percent=1,
             contrast_power=20,
         )
+
