@@ -7,7 +7,13 @@ import torch
 import torch.nn as nn
 
 __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
-__credits__ = ["Yves Paychère", "Colin Hofmann", "Cyril Achard", "Xide Xia", "Brian Kulis"]
+__credits__ = [
+    "Yves Paychère",
+    "Colin Hofmann",
+    "Cyril Achard",
+    "Xide Xia",
+    "Brian Kulis",
+]
 
 
 class WNet(nn.Module):
@@ -66,16 +72,28 @@ class UNet(nn.Module):
         c3 = self.conv3(nn.MaxPool3d(2)(c2))
         x = self.bot(nn.MaxPool3d(2)(c3))
         x = self.deconv1(
-            torch.cat([c3, nn.ConvTranspose3d(1024, 512, 2, stride=2, device=self.device)(x)], dim=1)
+            torch.cat(
+                [c3, nn.ConvTranspose3d(1024, 512, 2, stride=2, device=self.device)(x)],
+                dim=1,
+            )
         )
         x = self.deconv2(
-            torch.cat([c2, nn.ConvTranspose3d(512, 256, 2, stride=2, device=self.device)(x)], dim=1)
+            torch.cat(
+                [c2, nn.ConvTranspose3d(512, 256, 2, stride=2, device=self.device)(x)],
+                dim=1,
+            )
         )
         x = self.deconv3(
-            torch.cat([c1, nn.ConvTranspose3d(256, 128, 2, stride=2, device=self.device)(x)], dim=1)
+            torch.cat(
+                [c1, nn.ConvTranspose3d(256, 128, 2, stride=2, device=self.device)(x)],
+                dim=1,
+            )
         )
         x = self.out_b(
-            torch.cat([in_b, nn.ConvTranspose3d(128, 64, 2, stride=2, device=self.device)(x)], dim=1)
+            torch.cat(
+                [in_b, nn.ConvTranspose3d(128, 64, 2, stride=2, device=self.device)(x)],
+                dim=1,
+            )
         )
         if self.encoder:
             x = self.sm(x)

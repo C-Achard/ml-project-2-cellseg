@@ -19,7 +19,21 @@ from pydensecrf.utils import (
 )
 
 __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
-__credits__ = ["Yves Paychère", "Colin Hofmann", "Cyril Achard", "Philipp Krähenbühl", "Vladlen Koltun", "Liang-Chieh Chen", "George Papandreou", "Iasonas Kokkinos", "Kevin Murphy", "Alan L. Yuille", "Xide Xia", "Brian Kulis", "Lucas Beyer"]
+__credits__ = [
+    "Yves Paychère",
+    "Colin Hofmann",
+    "Cyril Achard",
+    "Philipp Krähenbühl",
+    "Vladlen Koltun",
+    "Liang-Chieh Chen",
+    "George Papandreou",
+    "Iasonas Kokkinos",
+    "Kevin Murphy",
+    "Alan L. Yuille",
+    "Xide Xia",
+    "Brian Kulis",
+    "Lucas Beyer",
+]
 
 
 def crf_batch(images, probs, sa, sb, sg, w1, w2, n_iter=5):

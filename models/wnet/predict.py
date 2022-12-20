@@ -12,6 +12,7 @@ from crf import crf, crf_batch
 
 __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 
+
 class PredictWNet:
     def __init__(self, trained_model_path, config, crf=False):
         self.config = config

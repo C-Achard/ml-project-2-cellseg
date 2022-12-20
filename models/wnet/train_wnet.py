@@ -38,6 +38,7 @@ from utils import create_dataset_dict_no_labs, get_padding_dim
 
 __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 
+
 def train():
     config = Config()
     CUDA = torch.cuda.is_available()
