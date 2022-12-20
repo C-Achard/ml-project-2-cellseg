@@ -1,3 +1,6 @@
+"""
+Predicts the segmentation of an image using a trained WNet model
+"""
 import torch
 import torch.nn as nn
 
@@ -7,29 +10,32 @@ from model import WNet
 from train_wnet import train
 from crf import crf, crf_batch
 
+__author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 
 class PredictWNet:
     def __init__(self, trained_model_path, config, crf=False):
         self.config = config
         self.crf = crf
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        CUDA = torch.cuda.is_available()
+        self.device = torch.device("cuda:0" if CUDA else "cpu")
 
         if trained_model_path is None:
-            train()
-            self.model = self.load_model(self.config.save_model_path)
+            print("No trained model found. Training a new model...")
+            self.model = train()[2]
         else:
-            self.model = self.load_model(trained_model_path)
+            self.model = self.load_model(self.device, trained_model_path)
 
         self.model.to(self.device)
         self.model.eval()
 
-    def load_model(self, trained_model_path):
+    def load_model(self, device, trained_model_path):
         model = WNet(
+            device=device,
             in_channels=self.config.in_channels,
             out_channels=self.config.out_channels,
             num_classes=self.config.num_classes,
         )
-        model.load_state_dict(torch.load(trained_model_path))
+        model.load_state_dict(torch.load(trained_model_path, map_location=device))
         return model
 
     def predict(self, image: np.ndarray):
@@ -43,6 +49,7 @@ class PredictWNet:
         """
         image = torch.from_numpy(image).unsqueeze(0).unsqueeze(0).float()
         image = image.to(self.device)
+
         with torch.no_grad():
             output = self.model.forward_encoder(image)
             output = torch.argmax(output, dim=1)
