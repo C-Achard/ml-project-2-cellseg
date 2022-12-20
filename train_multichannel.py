@@ -392,14 +392,14 @@ class Trainer:
             logger.info("Plotting dataset")
             view = napari.viewer.Viewer()
             for check_data in train_loader:
-                print(check_data.keys())
+                logger.info(check_data.keys())
                 image, label = (check_data["image"], check_data["label"])
 
                 view.add_image(image.numpy())
                 view.add_labels(label.numpy().astype(np.int8))
             napari.run()
             # image, label = (check_data["image"][0][0], check_data["label"][0][0])
-            # print(f"image shape: {image.shape}, label shape: {label.shape}")
+            # logger.info(f"image shape: {image.shape}, label shape: {label.shape}")
             # plt.figure("check", (12, 6))
             # plt.subplot(1, 2, 1)
             # plt.title("image")6
@@ -561,19 +561,20 @@ class Trainer:
 
                 if self.show_grad and (epoch + 1) % self.testing_interval == 0:
                     grad_model = model.module if hasattr(model, "module") else model
-                    # print(f"Out channels grad {model.out.conv[0].weight.grad}")
-                    print(
+                    # logger.info(f"Out channels grad {model.out.conv[0].weight.grad}")
+                    logger.info(
                         f"Out channels shape {grad_model.out.conv[0].weight.grad.shape}"
                     )
+                    logger.info(f"NOTE : Scaler might show gradients as 0")
                     for i in range(self.out_channels):
-                        print(f"CHANNEL {i}")
+                        logger.info(f"CHANNEL {i}")
                         grad = torch.abs(grad_model.out.conv[0].weight.grad)
-                        print(f"Out channel {i} shape {grad[i].shape}")
-                        print(
+                        logger.info(f"Out channel {i} shape {grad[i].shape}")
+                        logger.info(
                             f"Out channel {i} mean {grad[i].view(grad[i].size(0), -1).mean(1)}"
                         )
-                        # print(f"Out channel {i} min {grad[i].min()}")
-                        # print(f"Out channel {i} max {grad[i].max()}")
+                        # logger.info(f"Out channel {i} min {grad[i].min()}")
+                        # logger.info(f"Out channel {i} max {grad[i].max()}")
 
                 # optimizer.step()
                 # epoch_loss += loss.detach().item()
@@ -622,9 +623,9 @@ class Trainer:
                         # pred = decollate_batch(val_outputs)
                         # labs = decollate_batch(val_labels)
 
-                        # print(f"VAL LABELS SHAPE {val_labels.shape}")
-                        # print(f"LABS SHAPE {len(labs)}")
-                        # print(f"LABS 0 SHAPE {labs[0].shape}")
+                        # logger.info(f"VAL LABELS SHAPE {val_labels.shape}")
+                        # logger.info(f"LABS SHAPE {len(labs)}")
+                        # logger.info(f"LABS 0 SHAPE {labs[0].shape}")
 
                         if self.out_channels > 1:
                             post_pred = Compose(
@@ -655,9 +656,9 @@ class Trainer:
 
                         # [logger.info(f"Pred shape {p.shape}") for p in pred]
                         # [logger.info(f"lab shape {lab.shape}") for lab in labs]
-                        # print(f"VAL LABELS SHAPE {ohe_val_labels.shape}")
+                        # logger.info(f"VAL LABELS SHAPE {ohe_val_labels.shape}")
                         # for raw_label in ohe_val_labels:
-                        #     print(f"RAW LABEL SHAPE {raw_label[0].shape}")
+                        #     logger.info(f"RAW LABEL SHAPE {raw_label[0].shape}")
                         #     plot_tensor(raw_label[0], "raw_label", 0)
 
                         post_outputs = [
@@ -715,7 +716,7 @@ class Trainer:
                     # try:
                     self.make_train_csv()
                     # except Exception as e:
-                    #     print(e)
+                    #     logger.info(e)
 
                     if metric >= best_metric:
                         best_metric = metric
@@ -775,7 +776,7 @@ if __name__ == "__main__":
     config.batch_size = 10
 
     repo_path = Path(__file__).resolve().parents[0]
-    print(f"REPO PATH : {repo_path}")
+    logger.info(f"REPO PATH : {repo_path}")
 
     config.train_volume_directory = str(
         repo_path / "dataset/somatomotor/augmented_volumes"
@@ -820,7 +821,7 @@ if __name__ == "__main__":
     config.num_samples = 15
     config.max_epochs = 100
 
-    print(f"Saving to {config.results_path}")
+    logger.info(f"Saving to {config.results_path}")
     trainer = Trainer(config)
     trainer.log_parameters()
 
