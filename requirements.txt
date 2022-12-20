@@ -8,3 +8,4 @@ dask-image
 einops
 git+https://github.com/lucasb-eyer/pydensecrf.git
 cython
+tifffile
