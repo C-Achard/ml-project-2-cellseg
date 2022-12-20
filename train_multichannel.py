@@ -1,7 +1,6 @@
 import logging
 import warnings
 from functools import partial
-import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 import torch
@@ -493,13 +492,13 @@ class Trainer:
                 )
 
                 # optimizer.zero_grad()
-                logits = self.model_class.get_output(model, inputs)
-                if self.out_channels > 1:
-                    ohe_labels = one_hot(
-                        labels, num_classes=self.config.model_info.out_channels
-                    )
-                else:
-                    ohe_labels = labels
+                # logits = self.model_class.get_output(model, inputs)
+                # if self.out_channels > 1:
+                #     ohe_labels = one_hot(
+                #         labels, num_classes=self.config.model_info.out_channels
+                #     )
+                # else:
+                #     ohe_labels = labels
 
                 # loss = self.loss_function(  # softmax is done by DiceLoss
                 #     logits,
@@ -538,12 +537,12 @@ class Trainer:
                         # view.add_labels(ohe_labels[0].cpu().numpy().astype(np.int8), name="label")
                         # napari.run()
                         for j in range(self.config.batch_size):
-                            logger.info(f"Logits min {test_logits[j].min()}")
-                            logger.info(f"Logits max {test_logits[j].max()}")
-                            logger.info(f"Labels min {ohe_labels[j].min()}")
-                            logger.info(f"Labels max {ohe_labels[j].max()}")
+                            # logger.info(f"Logits min {test_logits[j].min()}")
+                            # logger.info(f"Logits max {test_logits[j].max()}")
+                            # logger.info(f"Labels min {ohe_labels[j].min()}")
+                            # logger.info(f"Labels max {ohe_labels[j].max()}")
                             for i in range(self.out_channels):
-                                if i == 0:
+                                if i == 0 and self.out_channels > 1:
                                     continue
                                 log = test_logits[j][i]
                                 logger.debug(f"Train : Logits shape {log.shape}")
@@ -679,13 +678,13 @@ class Trainer:
                             # logger.info(f"Val inputs shape {val_outputs[0].shape}")
                             # logger.info(f"Val labels shape {val_labels[0].shape}")
                             logger.info("-----------------")
-                            logger.info(f"Val inputs min {post_outputs[0].min()}")
-                            logger.info(f"Val inputs max {post_outputs[0].max()}")
-                            logger.info(f"Val labels min {post_labels[0].min()}")
-                            logger.info(f"Val labels max {post_labels[0].max()}")
+                            # logger.info(f"Val inputs min {post_outputs[0].min()}")
+                            # logger.info(f"Val inputs max {post_outputs[0].max()}")
+                            # logger.info(f"Val labels min {post_labels[0].min()}")
+                            # logger.info(f"Val labels max {post_labels[0].max()}")
 
                             for i in range(self.out_channels):
-                                if i == 0:
+                                if i == 0 and self.out_channels > 1:
                                     continue
                                 pred = post_outputs[0].cpu().numpy()
                                 # logger.info(f"Pred shape {pred.shape}")
@@ -812,7 +811,7 @@ if __name__ == "__main__":
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results/results_DiceCE_monochannel_aug" # "results_multichannel"  # "results_one_channel"
+    save_folder = "results/results_TA_test" # "results_multichannel"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
@@ -827,9 +826,10 @@ if __name__ == "__main__":
 
     #############
     # DEBUG
-    trainer.plot_train = False
-    trainer.show_grad = True
-    trainer.plot_val = False
+    trainer.testing_interval = 2
+    trainer.plot_train = True
+    trainer.show_grad = False
+    trainer.plot_val = True
     #############
 
     trainer.train()

@@ -283,12 +283,12 @@ if __name__ == "__main__":
 
     repo_path = Path(__file__).resolve().parents[1]
     file_path = str(Path(
-        # repo_path / "dataset/visual_tif/labels/images.tif"
-        repo_path / "dataset/somatomotor/labels/c5labels.tif"
+        repo_path / "dataset/visual_tif/labels/testing_im.tif"
+        # repo_path / "dataset/somatomotor/labels/c5labels.tif"
     ))
     image_path = str(Path(
-        # repo_path, "dataset/visual_tif/volumes/images.tif"
-        repo_path, "dataset/somatomotor/volumes/c5images.tif"
+        repo_path, "dataset/visual_tif/volumes/0-visual.tif"
+        # repo_path, "dataset/somatomotor/volumes/c5images.tif"
     ))
     #
     # volume_directory = repo_path / "dataset/somatomotor"

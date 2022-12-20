@@ -1,5 +1,5 @@
 import logging
-
+import numpy as np
 import napari
 from monai.transforms import AsDiscrete
 from tifffile import imread, imwrite
@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__) / "../../"))
 from config import InferenceWorkerConfig
 from example import Inference
 from utils import dice_metric, normalize
-from evaluate_model_performance import evaluate_model_performance
+from evaluate_model_performance import evaluate_model_performance, save_as_csv
 from post_processing import binary_watershed
 from napari.viewer import Viewer
 """
@@ -30,8 +30,8 @@ if __name__ == "__main__":
     pred_conf.weights_config.path = str(
         repo_path
         / "results"
-        / f"results_DiceCE_monochannel/{pred_conf.model_info.name}_best_metric.pth"
-        # / f"results_DiceCE_axons/{pred_conf.model_info.name}_checkpoint.pth"
+        # / f"results_DiceCE_monochannel_aug/{pred_conf.model_info.name}_best_metric.pth"
+        / f"results_DiceCE_monochannel_aug/{pred_conf.model_info.name}_checkpoint.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = 1
@@ -60,9 +60,9 @@ if __name__ == "__main__":
 
     worker = Inference(config=pred_conf)
     worker.log_parameters()
-    worker.inference()
+    # worker.inference()
 
-    ground_truth = imread(str(repo_path / "dataset/visual_tif/labels/testing_im.tif"))
+    ground_truth = imread(str(repo_path / "dataset/visual_tif/labels/testing_im_new_label.tif"))
     # ground_truth = None
     result = imread(str(repo_path / "test/semantic_labels/Semantic_labels_0_.tif"))
     if pred_conf.model_info.out_channels > 1:
@@ -72,26 +72,30 @@ if __name__ == "__main__":
     instance = binary_watershed(pre_instance, thres_seeding=0.95, thres_objects=0.4, thres_small=30)
     imwrite(str(repo_path / "test/Instance_labels.tif"), instance)
 
-    viewer = Viewer()
+    view = Viewer()
     logger.debug(f"Result shape : {result.shape}")
 
+    do_visualize = False
     if ground_truth is not None:
         if pred_conf.model_info.out_channels > 1:
             logger.info(f"DICE METRIC : {dice_metric(ground_truth, result[1])}")
-            logger.info(f"MODEL PERFORMANCE : {evaluate_model_performance(ground_truth, result[1])}")
+            evaluation_stats = evaluate_model_performance(ground_truth, instance[1], visualize=do_visualize)
+            # logger.info(f"MODEL PERFORMANCE : {}")
         else:
             logger.info(f"DICE METRIC : {dice_metric(ground_truth, result)}")
-            logger.info(f"MODEL PERFORMANCE : {evaluate_model_performance(ground_truth, result)}")
-        viewer.add_labels(ground_truth, name="ground truth")
+            evaluation_stats = evaluate_model_performance(ground_truth, instance, visualize=do_visualize)
+            # logger.info(f"MODEL PERFORMANCE : {evaluate_model_performance(ground_truth, instance, visualize=do_visualize)}")
+        view.add_labels(ground_truth, name="ground truth")
+        save_as_csv(evaluation_stats, str(repo_path / "test/evaluation_stats.csv"))
 
     prob_gradient = imread(str(repo_path / "test/prediction/prediction_.tif"))
-    viewer.add_image(normalize(prob_gradient), name="result")
-    viewer.add_image(prob_gradient, name="prediction", colormap="hsv")
-    viewer.add_image(pred_conf.image, name="image", colormap="inferno")
-    viewer.add_labels(instance, name="instance")
+    view.add_image(normalize(prob_gradient), name="result")
+    view.add_image(prob_gradient, name="prediction", colormap="hsv")
+    view.add_image(pred_conf.image, name="image", colormap="inferno")
+    view.add_labels(instance, name="instance")
 
     # from monai.transforms import Activations
-    # viewer.add_image(Activations(softmax=True)(result).numpy(), name="softmax", colormap="inferno")
+    # view.add_image(Activations(softmax=True)(result).numpy(), name="softmax", colormap="inferno")
 
     napari.run()
 

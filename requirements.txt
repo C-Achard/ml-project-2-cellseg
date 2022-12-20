@@ -7,3 +7,5 @@ scikit-image
 dask-image
 einops
 tifffile
+itk
+nibabel
