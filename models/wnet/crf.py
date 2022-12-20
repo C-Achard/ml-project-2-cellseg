@@ -1,3 +1,15 @@
+"""
+Implements the CRF post-processing step for the W-Net.
+Inspired by https://arxiv.org/abs/1606.00915 and https://arxiv.org/abs/1711.08506.
+
+Also uses research from:
+Efficient Inference in Fully Connected CRFs with Gaussian Edge Potentials
+Philipp Krähenbühl and Vladlen Koltun
+NIPS 2011
+
+Implemented using the pydense libary available at https://github.com/lucasb-eyer/pydensecrf.
+"""
+
 import numpy as np
 import pydensecrf.densecrf as dcrf
 from pydensecrf.utils import (
@@ -5,6 +17,9 @@ from pydensecrf.utils import (
     create_pairwise_gaussian,
     create_pairwise_bilateral,
 )
+
+__author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
+__credits__ = ["Yves Paychère", "Colin Hofmann", "Cyril Achard", "Philipp Krähenbühl", "Vladlen Koltun", "Liang-Chieh Chen", "George Papandreou", "Iasonas Kokkinos", "Kevin Murphy", "Alan L. Yuille", "Xide Xia", "Brian Kulis", "Lucas Beyer"]
 
 
 def crf_batch(images, probs, sa, sb, sg, w1, w2, n_iter=5):

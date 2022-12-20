@@ -1,3 +1,9 @@
+"""
+Implementation of a 3D Soft N-Cuts loss based on https://arxiv.org/abs/1711.08506 and https://ieeexplore.ieee.org/document/868688.
+The implementation was adapted and approximated to reduce computational and memory cost. 
+This faster version was proposed on https://github.com/fkodom/wnet-unsupervised-image-segmentation.
+"""
+
 import math
 import torch
 import torch.nn as nn
@@ -6,6 +12,8 @@ import torch.nn.functional as F
 import numpy as np
 from scipy.stats import norm
 
+__author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
+__credits__ = ["Yves Paychère", "Colin Hofmann", "Cyril Achard", "Xide Xia", "Brian Kulis", "Jianbo Shi", "Jitendra Malik", "Frank Odom"]
 
 class SoftNCutsLoss(nn.Module):
     """Implementation of a 3D Soft N-Cuts loss based on https://arxiv.org/abs/1711.08506 and https://ieeexplore.ieee.org/document/868688.
@@ -17,60 +25,6 @@ class SoftNCutsLoss(nn.Module):
         radius (scalar): radius of pixels for which we compute the weights
     """
 
-    def get_distances(self):
-        """Precompute the spatial distance of the pixels for the weights calculation, to avoid recomputing it at each iteration.
-        
-        Returns:
-            distances (dict): for each pixel index, we get the distances to the pixels in a radius around it.
-        """
-
-        distances = dict()
-        indexes = np.array(
-            [
-                (i, j, k)
-                for i in range(self.H)
-                for j in range(self.W)
-                for k in range(self.D)
-            ]
-        )
-
-        for i in indexes:
-            iTuple = (i[0], i[1], i[2])
-            distances[iTuple] = dict()
-
-            sliceD = indexes[
-                i[0] * self.H
-                + i[1] * self.W
-                + max(0, i[2] - self.radius) : i[0] * self.H
-                + i[1] * self.W
-                + min(self.D, i[2] + self.radius)
-            ]
-            sliceW = indexes[
-                i[0] * self.H
-                + max(0, i[1] - self.radius) * self.W
-                + i[2] : i[0] * self.H
-                + min(self.W, i[1] + self.radius) * self.W
-                + i[2] : self.D
-            ]
-            sliceH = indexes[
-                max(0, i[0] - self.radius) * self.H
-                + i[1] * self.W
-                + i[2] : min(self.H, i[0] + self.radius) * self.H
-                + i[1] * self.W
-                + i[2] : self.D * self.W
-            ]
-
-            for j in np.concatenate((sliceD, sliceW, sliceH)):
-                jTuple = (j[0], j[1], j[2])
-                distance = np.linalg.norm(i - j)
-                if distance > self.radius:
-                    continue
-                distance = math.exp(-(distance**2) / (self.o_x**2))
-
-                if jTuple not in distances:
-                    distances[iTuple][jTuple] = distance
-
-        return distances, indexes
 
     def __init__(self, data_shape, device, o_i, o_x, radius=None):
         super(SoftNCutsLoss, self).__init__()
@@ -249,6 +203,61 @@ class SoftNCutsLoss(nn.Module):
         kernel = kernel.view((1, 1, kernel.shape[0], kernel.shape[1], kernel.shape[2]))
 
         return kernel
+
+    def get_distances(self):
+        """Precompute the spatial distance of the pixels for the weights calculation, to avoid recomputing it at each iteration.
+        
+        Returns:
+            distances (dict): for each pixel index, we get the distances to the pixels in a radius around it.
+        """
+
+        distances = dict()
+        indexes = np.array(
+            [
+                (i, j, k)
+                for i in range(self.H)
+                for j in range(self.W)
+                for k in range(self.D)
+            ]
+        )
+
+        for i in indexes:
+            iTuple = (i[0], i[1], i[2])
+            distances[iTuple] = dict()
+
+            sliceD = indexes[
+                i[0] * self.H
+                + i[1] * self.W
+                + max(0, i[2] - self.radius) : i[0] * self.H
+                + i[1] * self.W
+                + min(self.D, i[2] + self.radius)
+            ]
+            sliceW = indexes[
+                i[0] * self.H
+                + max(0, i[1] - self.radius) * self.W
+                + i[2] : i[0] * self.H
+                + min(self.W, i[1] + self.radius) * self.W
+                + i[2] : self.D
+            ]
+            sliceH = indexes[
+                max(0, i[0] - self.radius) * self.H
+                + i[1] * self.W
+                + i[2] : min(self.H, i[0] + self.radius) * self.H
+                + i[1] * self.W
+                + i[2] : self.D * self.W
+            ]
+
+            for j in np.concatenate((sliceD, sliceW, sliceH)):
+                jTuple = (j[0], j[1], j[2])
+                distance = np.linalg.norm(i - j)
+                if distance > self.radius:
+                    continue
+                distance = math.exp(-(distance**2) / (self.o_x**2))
+
+                if jTuple not in distances:
+                    distances[iTuple][jTuple] = distance
+
+        return distances, indexes
 
     def get_weights(self, inputs):
         """Computes the weights matrix for the Soft N-Cuts loss.

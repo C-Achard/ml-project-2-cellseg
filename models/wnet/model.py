@@ -1,5 +1,13 @@
+"""
+Implementation of a 3D W-Net model, based on the 2D version from https://arxiv.org/abs/1711.08506.
+The model performs unsupervised segmentation of 3D images.
+"""
+
 import torch
 import torch.nn as nn
+
+__author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
+__credits__ = ["Yves Paychère", "Colin Hofmann", "Cyril Achard", "Xide Xia", "Brian Kulis"]
 
 
 class WNet(nn.Module):

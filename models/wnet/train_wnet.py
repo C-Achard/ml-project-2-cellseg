@@ -1,3 +1,7 @@
+"""
+This file contains the code to train the WNet model.
+"""
+
 import torch
 import torch.nn as nn
 
@@ -6,10 +10,8 @@ import numpy as np
 import time
 import sys
 
-from model import WNet
-import crf as crf
-from config import Config
-from soft_Ncuts import SoftNCutsLoss
+import tifffile as tiff
+import pickle
 
 from monai.data import CacheDataset, pad_list_data_collate
 from monai.transforms import (
@@ -26,12 +28,15 @@ from monai.transforms import (
     RandRotate90d,
 )
 
-import tifffile as tiff
-import pickle
+from model import WNet
+import crf as crf
+from config import Config
+from soft_Ncuts import SoftNCutsLoss
 
 sys.path.append("../..")
 from utils import create_dataset_dict_no_labs, get_padding_dim
 
+__author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 
 def train():
     config = Config()
@@ -77,7 +82,11 @@ def train():
     print("- getting the loss functions")
     # Initialize the Ncuts loss function
     criterionE = SoftNCutsLoss(
-        data_shape=data_shape, device=device, o_i=config.o_i, o_x=config.o_x, radius=config.radius
+        data_shape=data_shape,
+        device=device,
+        o_i=config.o_i,
+        o_x=config.o_x,
+        radius=config.radius,
     )
 
     criterionW = nn.MSELoss()
@@ -141,13 +150,23 @@ def train():
             reconstruction_loss.backward()
 
             optimizerW.step()
-            
+
             epoch_rec_loss += reconstruction_loss.item()
 
         ncuts_losses.append(epoch_ncuts_loss / len(dataloader))
         rec_losses.append(epoch_rec_loss / len(dataloader))
-        print("Ncuts loss: ", ncuts_losses[-1], ", difference: ", ncuts_losses[-1] - ncuts_losses[-2])
-        print("Reconstruction loss: ", rec_losses[-1], ", difference: ", rec_losses[-1] - rec_losses[-2])
+        print(
+            "Ncuts loss: ",
+            ncuts_losses[-1],
+            ", difference: ",
+            ncuts_losses[-1] - ncuts_losses[-2],
+        )
+        print(
+            "Reconstruction loss: ",
+            rec_losses[-1],
+            ", difference: ",
+            rec_losses[-1] - rec_losses[-2],
+        )
 
         # Update the learning rate
         schedulerE.step(epoch_ncuts_loss)
@@ -155,7 +174,7 @@ def train():
 
         print(
             "ETA: ",
-            (time.time() - startTime) * (config.num_epochs / (epoch+1) - 1) / 60,
+            (time.time() - startTime) * (config.num_epochs / (epoch + 1) - 1) / 60,
             "minutes",
         )
         print("-" * 20)
@@ -166,7 +185,6 @@ def train():
             with open(config.save_losses_path, "wb") as f:
                 pickle.dump((ncuts_losses, rec_losses), f)
 
-                
     print("Training finished")
     print("*" * 50)
 
@@ -190,7 +208,9 @@ def get_dataset(config):
         (tuple): A tuple containing the shape of the data and the dataset
     """
 
-    train_files = create_dataset_dict_no_labs(volume_directory=config.train_volume_directory)
+    train_files = create_dataset_dict_no_labs(
+        volume_directory=config.train_volume_directory
+    )
     train_files = [d.get("image") for d in train_files]
     volumes = tiff.imread(train_files).astype(np.float32)
     volume_shape = volumes.shape
@@ -209,7 +229,9 @@ def get_dataset_monai(config):
     Returns:
         (tuple): A tuple containing the shape of the data and the dataset
     """
-    train_files = create_dataset_dict_no_labs(volume_directory=config.train_volume_directory)
+    train_files = create_dataset_dict_no_labs(
+        volume_directory=config.train_volume_directory
+    )
     print(train_files)
     print(len(train_files))
     print(train_files[0])
