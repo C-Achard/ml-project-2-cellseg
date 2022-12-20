@@ -29,3 +29,4 @@ class Config:
 
         self.save_model = True
         self.save_model_path = r""
+        self.parralel = False

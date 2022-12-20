@@ -34,6 +34,8 @@ from utils import create_dataset_dict, get_padding_dim
 
 def train():
     config = Config()
+    CUDA = torch.cuda.is_available()
+    device = torch.device("cuda:0" if CUDA else "cpu")
 
     print("Initializing training...")
     ###################################################
@@ -56,16 +58,15 @@ def train():
     ###################################################
     print("Initializing the model:")
 
-    CUDA = torch.cuda.is_available()
-
     print("- getting the model")
     # Initialize the model
     model = WNet(
+        device=device,
         in_channels=config.in_channels,
         out_channels=config.out_channels,
         num_classes=config.num_classes,
     )
-    model = nn.DataParallel(model).cuda() if CUDA else model
+    model = nn.DataParallel(model).cuda() if CUDA and config.parralel else model
 
     print("- getting the optimizers")
     # Initialize the optimizers
@@ -75,7 +76,7 @@ def train():
     print("- getting the loss functions")
     # Initialize the Ncuts loss function
     criterionE = SoftNCutsLoss(
-        data_shape=data_shape, o_i=config.o_i, o_x=config.o_x, radius=config.radius
+        data_shape=data_shape, device=device, o_i=config.o_i, o_x=config.o_x, radius=config.radius
     )
 
     criterionW = nn.MSELoss()
@@ -105,10 +106,7 @@ def train():
         epoch_rec_loss = 0
 
         for batch in dataloader:
-            if CUDA:
-                image = batch.cuda()
-            else:
-                image = batch
+            image = batch.to(device)
 
             if config.batch_size == 1:
                 image = image.unsqueeze(0)

@@ -72,7 +72,7 @@ class SoftNCutsLoss(nn.Module):
 
         return distances, indexes
 
-    def __init__(self, data_shape, o_i, o_x, radius=None):
+    def __init__(self, data_shape, device, o_i, o_x, radius=None):
         super(SoftNCutsLoss, self).__init__()
         self.o_i = o_i
         self.o_x = o_x
@@ -80,6 +80,7 @@ class SoftNCutsLoss(nn.Module):
         self.H = data_shape[0]
         self.W = data_shape[1]
         self.D = data_shape[2]
+        self.device = device
 
         if self.radius is None:
             self.radius = min(
@@ -170,9 +171,12 @@ class SoftNCutsLoss(nn.Module):
         C = inputs.shape[1]
         K = labels.shape[1]
 
+        labels.to(self.device)
+        inputs.to(self.device)
+
         loss = 0
 
-        kernel = self.gaussian_kernel(self.radius, self.o_x).to(inputs.device)
+        kernel = self.gaussian_kernel(self.radius, self.o_x).to(self.device)
         
         for k in range(K):
             # Compute the average pixel value for this class, and the difference from each pixel
@@ -243,9 +247,6 @@ class SoftNCutsLoss(nn.Module):
         kernel = norm.pdf(dist) / norm.pdf(0)
         kernel = torch.from_numpy(kernel.astype(np.float32))
         kernel = kernel.view((1, 1, kernel.shape[0], kernel.shape[1], kernel.shape[2]))
-
-        if torch.cuda.is_available():
-            kernel = kernel.cuda()
 
         return kernel
 
