@@ -3,13 +3,13 @@ import torch.nn as nn
 
 import numpy as np
 
-from models.wnet.model import WNet
-from models.wnet.train_wnet import train
-from models.wnet.crf import crf, crf_batch
+from model import WNet
+from train_wnet import train
+from crf import crf, crf_batch
 
 
 class PredictWNet:
-    def __init__(self, trained_model_path, config, crf=True):
+    def __init__(self, trained_model_path, config, crf=False):
         self.config = config
         self.crf = crf
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -1,6 +1,10 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+import numpy as np
+from scipy.stats import norm
 
 
 class SoftNCutsLoss(nn.Module):
@@ -13,6 +17,61 @@ class SoftNCutsLoss(nn.Module):
         radius (scalar): radius of pixels for which we compute the weights
     """
 
+    def get_distances(self):
+        """Precompute the spatial distance of the pixels for the weights calculation, to avoid recomputing it at each iteration.
+        
+        Returns:
+            distances (dict): for each pixel index, we get the distances to the pixels in a radius around it.
+        """
+
+        distances = dict()
+        indexes = np.array(
+            [
+                (i, j, k)
+                for i in range(self.H)
+                for j in range(self.W)
+                for k in range(self.D)
+            ]
+        )
+
+        for i in indexes:
+            iTuple = (i[0], i[1], i[2])
+            distances[iTuple] = dict()
+
+            sliceD = indexes[
+                i[0] * self.H
+                + i[1] * self.W
+                + max(0, i[2] - self.radius) : i[0] * self.H
+                + i[1] * self.W
+                + min(self.D, i[2] + self.radius)
+            ]
+            sliceW = indexes[
+                i[0] * self.H
+                + max(0, i[1] - self.radius) * self.W
+                + i[2] : i[0] * self.H
+                + min(self.W, i[1] + self.radius) * self.W
+                + i[2] : self.D
+            ]
+            sliceH = indexes[
+                max(0, i[0] - self.radius) * self.H
+                + i[1] * self.W
+                + i[2] : min(self.H, i[0] + self.radius) * self.H
+                + i[1] * self.W
+                + i[2] : self.D * self.W
+            ]
+
+            for j in np.concatenate((sliceD, sliceW, sliceH)):
+                jTuple = (j[0], j[1], j[2])
+                distance = np.linalg.norm(i - j)
+                if distance > self.radius:
+                    continue
+                distance = math.exp(-(distance**2) / (self.o_x**2))
+
+                if jTuple not in distances:
+                    distances[iTuple][jTuple] = distance
+
+        return distances, indexes
+
     def __init__(self, data_shape, o_i, o_x, radius=None):
         super(SoftNCutsLoss, self).__init__()
         self.o_i = o_i
@@ -23,54 +82,79 @@ class SoftNCutsLoss(nn.Module):
         self.D = data_shape[2]
 
         if self.radius is None:
-            self.radius = math.min(
-                math.max(5, math.ceil(math.min(self.H, self.W, self.D) / 20)),
+            self.radius = min(
+                max(5, math.ceil(min(self.H, self.W, self.D) / 20)),
                 self.H,
                 self.W,
                 self.D,
             )
 
+        #self.distances, self.indexes = self.get_distances()
+
+        """
+ 
         # Precompute the spatial distance of the pixels for the weights calculation, to avoid recomputing it at each iteration
-        H_index = torch.tensor(range(self.H)).expand(self.H, self.H)  # (H, H)
-        W_index = torch.tensor(range(self.W)).expand(self.W, self.W)  # (W, W)
-        D_index = torch.tensor(range(self.D)).expand(self.D, self.D)  # (D, D)
+        distances_H = torch.tensor(range(self.H)).expand(self.H, self.H)  # (H, H)
+        distances_W = torch.tensor(range(self.W)).expand(self.W, self.W)  # (W, W)
+        distances_D = torch.tensor(range(self.D)).expand(self.D, self.D)  # (D, D)
 
-        distances_H = torch.subtract(H_index, H_index.T)  # (H, H)
-        distances_W = torch.subtract(W_index, W_index.T)  # (W, W)
-        distances_D = torch.subtract(D_index, D_index.T)  # (D, D)
+        # Compute in cuda if possible
+        if torch.cuda.is_available():
+            distances_H = distances_H.cuda()
+            distances_W = distances_W.cuda()
+            distances_D = distances_D.cuda()
 
-        distances_H_expanded = distances_H.view(self.H, self.H, 1, 1, 1, 1).expand(
-            self.H, self.H, self.W, self.W, self.D, self.D
-        )  # (H, H, W, W, D, D)
-        distances_W_expanded = distances_W.view(1, 1, self.W, self.W, 1, 1).expand(
-            self.H, self.H, self.W, self.W, self.D, self.D
-        )  # (H, H, W, W, D, D)
-        distances_D_expanded = distances_D.view(1, 1, 1, 1, self.D, self.D).expand(
-            self.H, self.H, self.W, self.W, self.D, self.D
-        )  # (H, H, W, W, D, D)
+        distances_H = torch.abs(torch.subtract(distances_H, distances_H.T))  # (H, H)
+        distances_W = torch.abs(torch.subtract(distances_W, distances_W.T))  # (W, W)
+        distances_D = torch.abs(torch.subtract(distances_D, distances_D.T))  # (D, D)
+
+        distances_H = distances_H.view(self.H, 1, 1, self.H, 1, 1).expand(
+            self.H, self.W, self.D, self.H, self.W, self.D
+        ).to_sparse()  # (H, 1, 1, H, 1, 1) -> (H, W, D, H, W, D)
+        distances_W = distances_W.view(1, self.W, 1, 1, self.W, 1).expand(
+            self.H, self.W, self.D, self.H, self.W, self.D
+        ).to_sparse()  # (1, W, 1, 1, W, 1) -> (H, W, D, H, W, D)
+        distances_D = distances_D.view(1, 1, self.D, 1, 1, self.D).expand(
+            self.H, self.W, self.D, self.H, self.W, self.D
+        ).to_sparse()  # (1, 1, D, 1, 1, D) -> (H, W, D, H, W, D)
+
+        mask_H = torch.le(distances_H, self.radius).bool()  # (H, W, D, H, W, D)
+        mask_W = torch.le(distances_W, self.radius).bool()  # (H, W, D, H, W, D)
+        mask_D = torch.le(distances_D, self.radius).bool()  # (H, W, D, H, W, D)
+
+        distances_H = (distances_H * mask_H)  # (H, W, D, H, W, D)
+        distances_W = (distances_W * mask_W)  # (H, W, D, H, W, D)
+        distances_D = (distances_D * mask_D)  # (H, W, D, H, W, D)
+
+        mask_H =mask_H.flatten(0, 2).flatten(1, 3) # (H, W, D, H, W, D)
+        mask_W =mask_W.flatten(0, 2).flatten(1, 3) # (H, W, D, H, W, D)
+        mask_D =mask_D.flatten(0, 2).flatten(1, 3) # (H, W, D, H, W, D)
+
+        distances_H = distances_H.pow(2) # (H, W, D, H, W, D)
+        distances_W = distances_W.pow(2) # (H, W, D, H, W, D)
+        distances_D = distances_D.pow(2) # (H, W, D, H, W, D)
 
         squared_distances = torch.add(
-            torch.add(
-                torch.pow(distances_H_expanded, 2), torch.pow(distances_W_expanded, 2)
-            ),
-            torch.pow(distances_D_expanded, 2),
-        )  # (H, H, W, W, D, D)
-
-        squared_distances = (
-            squared_distances.swapaxes(1, 3).swapaxes(2, 4).swapaxes(1, 4)
+            torch.add(distances_H, distances_W),
+            distances_D,
         )  # (H, W, D, H, W, D)
+
         squared_distances = squared_distances.flatten(0, 2).flatten(
             1, 3
         )  # (H*W*D, H*W*D)
 
         # Mask to only keep the weights for the pixels in the radius
-        self.mask = torch.le(squared_distances, self.radius**2)  # (H*W*D, H*W*D)
+        self.mask = torch.le(squared_distances, self.radius**2).bool()  # (H*W*D, H*W*D)
+
+        # Add all masks to get the final mask
+        self.mask = self.mask.logical_and(mask_H).logical_and(mask_W).logical_and(mask_D)  # (H*W*D, H*W*D)
 
         W_X = torch.exp(
             torch.neg(torch.div(squared_distances, self.o_x))
         )  # (H*W*D, H*W*D)
 
         self.W_X = torch.mul(W_X, self.mask)  # (H*W*D, H*W*D)
+        """
 
     def forward(self, labels, inputs):
         """Forward pass of the Soft N-Cuts loss.
@@ -86,9 +170,28 @@ class SoftNCutsLoss(nn.Module):
         C = inputs.shape[1]
         K = labels.shape[1]
 
-        losses = []
-        weights = self.get_weights(inputs)  # (N, C, H*W*D, H*W*D)
+        loss = 0
 
+        kernel = self.gaussian_kernel(self.radius, self.o_x).to(inputs.device)
+        
+        for k in range(K):
+            # Compute the average pixel value for this class, and the difference from each pixel
+            class_probs = labels[:, k].unsqueeze(1)
+            class_mean = torch.mean(inputs * class_probs, dim=(2, 3, 4), keepdim=True) / \
+                torch.add(torch.mean(class_probs, dim=(2, 3, 4), keepdim=True), 1e-5)
+            diff = (inputs - class_mean).pow(2).sum(dim=1).unsqueeze(1)
+
+            # Weight the loss by the difference from the class average.
+            weights = torch.exp(diff.pow(2).mul(-1 / self.o_i ** 2))
+
+            numerator = torch.sum(class_probs * F.conv3d(class_probs * weights, kernel, padding=self.radius), dim=(1, 2, 3, 4))
+            denominator = torch.sum(class_probs * F.conv3d(weights, kernel, padding=self.radius), dim=(1, 2, 3, 4))
+            loss += nn.L1Loss()(numerator / torch.add(denominator, 1e-6), torch.zeros_like(numerator))
+
+        return K - loss
+
+
+        """
         for k in range(K):
             Ak = labels[:, k, :, :, :]  # (N, H, W, D)
             flatted_Ak = Ak.view(N, -1)  # (N, H*W*D)
@@ -123,6 +226,28 @@ class SoftNCutsLoss(nn.Module):
         loss = torch.sum(torch.stack(losses, dim=0), dim=0)  # (N,)
 
         return torch.add(torch.neg(loss), K)
+        """
+
+    def gaussian_kernel(self, radius, sigma):
+        """Computes the Gaussian kernel.
+        
+        Args:
+            radius (int): The radius of the kernel.
+            sigma (float): The standard deviation of the Gaussian distribution.
+            
+        Returns:
+            The Gaussian kernel of shape (1, 1, 2*radius+1, 2*radius+1, 2*radius+1).
+        """
+        x_2 = np.linspace(-radius, radius, 2*radius+1) ** 2
+        dist = np.sqrt(x_2.reshape(-1, 1, 1) + x_2.reshape(1, -1, 1) + x_2.reshape(1, 1, -1)) / sigma
+        kernel = norm.pdf(dist) / norm.pdf(0)
+        kernel = torch.from_numpy(kernel.astype(np.float32))
+        kernel = kernel.view((1, 1, kernel.shape[0], kernel.shape[1], kernel.shape[2]))
+
+        if torch.cuda.is_available():
+            kernel = kernel.cuda()
+
+        return kernel
 
     def get_weights(self, inputs):
         """Computes the weights matrix for the Soft N-Cuts loss.
@@ -131,7 +256,36 @@ class SoftNCutsLoss(nn.Module):
             inputs (torch.Tensor): Tensor of shape (N, C, H, W, D) containing the input images.
 
         Returns:
-            The weights matrix of shape (N, C, H*W*D, H*W*D).
+            list: List of the weights dict for each image in the batch.
+        """
+
+        """
+        weights = []
+        for n in range(inputs.shape[0]):
+            weightsChannel = []
+            for c in range(inputs.shape[1]):
+                weightsImage = dict()
+                for i in self.indexes:
+                    iTuple = (i[0], i[1], i[2])
+                    weightsImage[iTuple] = dict()
+                    for j in self.indexes:
+                        jTuple = (j[0], j[1], j[2])
+                        if iTuple in self.distances and jTuple in self.distances[i]:
+                            brightness = (
+                                inputs[n][c][i[0]][i[1]][i[2]]
+                                - inputs[n][c][j[0]][j[1]][j[2]]
+                            ) ** 2
+                            brightness = math.exp(-brightness / self.o_i**2)
+                        weightsImage[iTuple][jTuple] = (
+                            self.distances[iTuple][jTuple] * brightness
+                        )
+
+                weightsChannel.append(weightsImage)
+
+            weights.append(weightsChannel)
+
+        return weights
+
         """
 
         # Compute the brightness distance of the pixels
@@ -156,3 +310,4 @@ class SoftNCutsLoss(nn.Module):
 
         W = torch.mul(W_I, unsqueezed_W_X)  # (N, C, H*W*D, H*W*D)
         return W
+        

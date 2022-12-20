@@ -1,10 +1,15 @@
 import torch
 import torch.nn as nn
 
-from models.wnet.model import WNet
-import models.wnet.crf as crf
-from models.wnet.config import Config
-from models.wnet.soft_Ncuts import SoftNCutsLoss
+import numpy as np
+
+import time
+import sys
+
+from model import WNet
+import crf as crf
+from config import Config
+from soft_Ncuts import SoftNCutsLoss
 
 from monai.data import CacheDataset, pad_list_data_collate
 from monai.transforms import (
@@ -21,6 +26,9 @@ from monai.transforms import (
     RandRotate90d,
 )
 
+import tifffile as tiff
+
+sys.path.append("../..")
 from utils import create_dataset_dict, get_padding_dim
 
 
@@ -46,10 +54,11 @@ def train():
     ###################################################
     #               Training the model                #
     ###################################################
-    print("Initializing the model")
+    print("Initializing the model:")
 
     CUDA = torch.cuda.is_available()
 
+    print("- getting the model")
     # Initialize the model
     model = WNet(
         in_channels=config.in_channels,
@@ -58,10 +67,12 @@ def train():
     )
     model = nn.DataParallel(model).cuda() if CUDA else model
 
+    print("- getting the optimizers")
     # Initialize the optimizers
     optimizerW = torch.optim.Adam(model.parameters(), lr=config.lr)
     optimizerE = torch.optim.Adam(model.encoder.parameters(), lr=config.lr)
 
+    print("- getting the loss functions")
     # Initialize the Ncuts loss function
     criterionE = SoftNCutsLoss(
         data_shape=data_shape, o_i=config.o_i, o_x=config.o_x, radius=config.radius
@@ -69,6 +80,7 @@ def train():
 
     criterionW = nn.MSELoss()
 
+    print("- getting the learning rate schedulers")
     # Initialize the learning rate schedulers
     schedulerW = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizerW, mode="min", factor=0.5, patience=10, verbose=True
@@ -79,8 +91,11 @@ def train():
 
     model.train()
 
+    print("Ready")
     print("Training the model")
     print("*" * 50)
+
+    startTime = time.time()
 
     # Train the model
     for epoch in range(config.num_epochs):
@@ -90,7 +105,13 @@ def train():
         epoch_rec_loss = 0
 
         for batch in dataloader:
-            image = batch["image"].cuda() if CUDA else batch["image"]
+            if CUDA:
+                image = batch.cuda()
+            else:
+                image = batch
+
+            if config.batch_size == 1:
+                image = image.unsqueeze(0)
 
             # Forward pass
             enc = model.forward_encoder(image)
@@ -119,7 +140,7 @@ def train():
             reconstruction_loss.backward()
 
             optimizerW.step()
-
+            
             epoch_rec_loss += reconstruction_loss.item()
 
         print("Ncuts loss: ", epoch_ncuts_loss / len(dataloader))
@@ -129,6 +150,11 @@ def train():
         schedulerE.step(epoch_ncuts_loss)
         schedulerW.step(epoch_rec_loss)
 
+        print(
+            "ETA: ",
+            (time.time() - startTime) * (config.num_epochs / epoch - 1) / 60,
+            "minutes",
+        )
         print("-" * 20)
 
     print("Training finished")
@@ -139,10 +165,42 @@ def train():
         print("Saving the model")
         torch.save(model.state_dict(), config.save_model_path)
 
+    return model
+
 
 def get_dataset(config):
-    train_files = create_dataset_dict(volume_directory=config.train_volume_directory)
+    """Creates a Dataset from the original data using the tifffile library
 
+    Args:
+        config (Config): The configuration object
+
+    Returns:
+        (tuple): A tuple containing the shape of the data and the dataset
+    """
+
+    train_files = create_dataset_dict(volume_directory=config.train_volume_directory)
+    train_files = [d.get("image") for d in train_files]
+    volumes = tiff.imread(train_files).astype(np.float32)
+    volume_shape = volumes.shape
+
+    dataset = CacheDataset(data=volumes)
+
+    return (volume_shape, dataset)
+
+
+def get_dataset_monai(config):
+    """Creates a Dataset applying some transforms/augmentation on the data using the MONAI library
+
+    Args:
+        config (Config): The configuration object
+
+    Returns:
+        (tuple): A tuple containing the shape of the data and the dataset
+    """
+    train_files = create_dataset_dict(volume_directory=config.train_volume_directory)
+    print(train_files)
+    print(len(train_files))
+    print(train_files[0])
     first_volume = LoadImaged(keys=["image"])(train_files[0])
     first_volume_shape = first_volume["image"].shape
 
