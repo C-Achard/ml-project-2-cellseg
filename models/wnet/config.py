@@ -11,7 +11,7 @@ class Config:
         self.o_x = 4  # initialization as in the paper
         self.radius = None  # yields to a radius depending on the data shape
 
-        self.num_epochs = 500
+        self.num_epochs = 5000
         self.batch_size = 1
         self.num_workers = 4
 
@@ -26,7 +26,9 @@ class Config:
         # Data
         self.train_volume_directory = r""
         self.do_augmentation = True
+        self.parralel = False
 
         self.save_model = True
         self.save_model_path = r""
-        self.parralel = False
+        self.save_losses_path = r""
+        self.save_every = 100

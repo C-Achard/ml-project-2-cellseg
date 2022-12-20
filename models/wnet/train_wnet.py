@@ -27,6 +27,7 @@ from monai.transforms import (
 )
 
 import tifffile as tiff
+import pickle
 
 sys.path.append("../..")
 from utils import create_dataset_dict_no_labs, get_padding_dim
@@ -97,6 +98,8 @@ def train():
     print("*" * 50)
 
     startTime = time.time()
+    ncuts_losses = []
+    rec_losses = []
 
     # Train the model
     for epoch in range(config.num_epochs):
@@ -141,8 +144,10 @@ def train():
             
             epoch_rec_loss += reconstruction_loss.item()
 
-        print("Ncuts loss: ", epoch_ncuts_loss / len(dataloader))
-        print("Reconstruction loss: ", epoch_rec_loss / len(dataloader))
+        ncuts_losses.append(epoch_ncuts_loss / len(dataloader))
+        rec_losses.append(epoch_rec_loss / len(dataloader))
+        print("Ncuts loss: ", ncuts_losses[-1], ", difference: ", ncuts_losses[-1] - ncuts_losses[-2])
+        print("Reconstruction loss: ", rec_losses[-1], ", difference: ", rec_losses[-1] - rec_losses[-2])
 
         # Update the learning rate
         schedulerE.step(epoch_ncuts_loss)
@@ -155,6 +160,13 @@ def train():
         )
         print("-" * 20)
 
+        # Save the model
+        if config.save_model and epoch % config.save_every == 0:
+            torch.save(model.state_dict(), config.save_model_path)
+            with open(config.save_losses_path, "wb") as f:
+                pickle.dump((ncuts_losses, rec_losses), f)
+
+                
     print("Training finished")
     print("*" * 50)
 
@@ -162,8 +174,10 @@ def train():
     if config.save_model:
         print("Saving the model")
         torch.save(model.state_dict(), config.save_model_path)
+        with open(config.save_losses_path, "wb") as f:
+            pickle.dump((ncuts_losses, rec_losses), f)
 
-    return model
+    return ncuts_losses, rec_losses, model
 
 
 def get_dataset(config):
