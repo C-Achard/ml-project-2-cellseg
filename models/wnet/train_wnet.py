@@ -29,7 +29,7 @@ from monai.transforms import (
 import tifffile as tiff
 
 sys.path.append("../..")
-from utils import create_dataset_dict, get_padding_dim
+from utils import create_dataset_dict_no_labs, get_padding_dim
 
 
 def train():
@@ -150,7 +150,7 @@ def train():
 
         print(
             "ETA: ",
-            (time.time() - startTime) * (config.num_epochs / epoch - 1) / 60,
+            (time.time() - startTime) * (config.num_epochs / (epoch+1) - 1) / 60,
             "minutes",
         )
         print("-" * 20)
@@ -176,7 +176,7 @@ def get_dataset(config):
         (tuple): A tuple containing the shape of the data and the dataset
     """
 
-    train_files = create_dataset_dict(volume_directory=config.train_volume_directory)
+    train_files = create_dataset_dict_no_labs(volume_directory=config.train_volume_directory)
     train_files = [d.get("image") for d in train_files]
     volumes = tiff.imread(train_files).astype(np.float32)
     volume_shape = volumes.shape
@@ -195,7 +195,7 @@ def get_dataset_monai(config):
     Returns:
         (tuple): A tuple containing the shape of the data and the dataset
     """
-    train_files = create_dataset_dict(volume_directory=config.train_volume_directory)
+    train_files = create_dataset_dict_no_labs(volume_directory=config.train_volume_directory)
     print(train_files)
     print(len(train_files))
     print(train_files[0])

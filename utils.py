@@ -118,7 +118,7 @@ def create_dataset_dict(volume_directory, label_directory):
 
     return data_dicts
 
-def create_dataset_dict(volume_directory):
+def create_dataset_dict_no_labs(volume_directory):
     """Creates unsupervised data dictionary for MONAI transforms and training."""
     images_filepaths = sorted(glob.glob(str(Path(volume_directory) / "*.tif")))
     if len(images_filepaths) == 0:
