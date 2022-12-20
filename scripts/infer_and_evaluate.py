@@ -22,7 +22,7 @@ Runs inference on a single image and evaluate the results
 """
 
 
-def delete_big_instances(instance, threshold=1000):
+def delete_big_instances(instance, threshold=5000):
     labels_i, counts = np.unique(instance, return_counts=True)
     labels_i = labels_i[counts < threshold]
     labels_i = labels_i[labels_i > 0]
@@ -33,7 +33,8 @@ def delete_big_instances(instance, threshold=1000):
 def infer_and_evaluate(
     name_of_model="SwinUNetR",
     out_channels_number=1,
-    folder="new_final",
+    path_to_folder_weight="new_final/results_DiceCE_monochannel_aug",
+    use_best_metric=True,
     test_image_path="dataset_clean/visual_tif/volumes/0-visual.tif",
     ground_truth_path="dataset_clean/visual_tif/labels/testing_im_new_label.tif",
 ):
@@ -60,11 +61,14 @@ def infer_and_evaluate(
 
     pred_conf = InferenceWorkerConfig()
     pred_conf.model_info.name = name_of_model
+    if use_best_metric:
+        weight_type="best_metric"
+    else:
+        weight_type="checkpoint"
     pred_conf.weights_config.path = str(
         repo_path
-        / folder
-        # / f"results_DiceCE_monochannel_aug/{pred_conf.model_info.name}_best_metric.pth"
-        / f"results_DiceCE_monochannel_aug/{pred_conf.model_info.name}_checkpoint.pth"
+        / path_to_folder_weight
+        / f"{pred_conf.model_info.name}_{weight_type}.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = out_channels_number
@@ -141,7 +145,12 @@ def infer_and_evaluate(
 
 
 if __name__ == "__main__":
-    infer_and_evaluate()
+    infer_and_evaluate(name_of_model="SwinUNetR",
+    out_channels_number=1,
+    path_to_folder_weight="new_final/results_DiceCE_monochannel",
+    use_best_metric=False,
+    test_image_path="dataset_clean/visual_tif/volumes/0-visual.tif",
+    ground_truth_path="dataset_clean/visual_tif/labels/testing_im_new_label.tif")
 
     # TODO(cyril) :
     # - train baseline

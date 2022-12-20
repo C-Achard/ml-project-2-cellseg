@@ -206,6 +206,7 @@ def save_as_csv(results, path):
     df.to_csv(path, index=False)
 
 if __name__ == "__main__":
+    """
     # Example of how to use the functions in this module.
     a = np.array([[0, 0, 0, 0],
                   [0, 1, 1, 0],
@@ -229,9 +230,13 @@ if __name__ == "__main__":
                   [0, 0, 4, 0]])
 
     evaluate_model_performance(c, d)
-    """
+
     from tifffile import imread
     labels=imread("dataset/visual_tif/labels/testing_im_new_label.tif")
     labels_model=imread("dataset/visual_tif/artefact_neurones/basic_model.tif")
     evaluate_model_performance(labels, labels_model,visualize=True)
     """
+    from tifffile import imread
+    labels=imread("dataset_clean/visual_tif/labels/testing_im_new_label.tif")
+    labels_model=imread("test/instance_labels.tif")
+    evaluate_model_performance(labels, labels_model,visualize=True)
