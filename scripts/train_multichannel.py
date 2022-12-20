@@ -20,7 +20,7 @@ from monai.data import (
 
 from monai.losses import DiceLoss, DiceCELoss
 from monai.networks.utils import one_hot
-from monai.metrics import DiceMetric
+from monai.metrics import DiceMetric, ConfusionMatrixMetric
 from monai.transforms import (
     Activations,
     AsDiscrete,
@@ -109,6 +109,7 @@ class Trainer:
         self.loss_values = []
         self.validation_values = []
         self.validation_loss_values = []
+        self.confusion = []
         self.df = None
 
         ######################
@@ -120,13 +121,13 @@ class Trainer:
 
         if self.config.model_info.out_channels > 1:
             logger.info("Using SOFTMAX loss")
-            # self.loss_function = DiceLoss(
+            # self.loss_function = DiceLoss( # NOTE : DiceLoss has not been updated to support multichannel
             #     softmax=True,
             #     to_onehot_y=True  # removed here, done at model level to account for possible error with images with single label
             # )
             self.loss_function = DiceCELoss(
                 softmax=True,
-                lambda_dice=0.5,
+                # lambda_dice=0.5,
                 # to_onehot_y=True
                 # removed here, done at model level to account for possible error with images with single label
             )
@@ -137,22 +138,43 @@ class Trainer:
         # self.loss_function = get_loss(self.config.loss_function_name, self.device)
 
     def make_train_csv(self):
+        """Records the training stats in a csv file"""
         size_column = range(1, len(self.loss_values) + 1)
 
         if len(self.loss_values) == 0 or self.loss_values is None:
             warnings.warn("No loss values to add to csv !")
             return
 
+        def prepare_validations(val):
+            """Fills the gap due to val_interval with blank"""
+            return fill_list_in_between(
+                val, self.val_interval - 1, ""
+            )[: len(size_column)]
+
+        if len(self.confusion) == 1:
+            confusion = self.confusion[0]
+            sensi = [confusion[0]]
+            spec = [confusion[1]]
+            fall_out = [confusion[2]]
+            miss = [confusion[3]]
+        else:
+            confusion = np.array(self.confusion)
+            sensi = confusion[:, 0]
+            spec = confusion[:, 1]
+            fall_out = confusion[:, 2]
+            miss = confusion[:, 3]
+
+
         self.df = pd.DataFrame(
             {
                 "epoch": size_column,
-                "loss": self.loss_values,
-                "validation": fill_list_in_between(
-                    self.validation_values, self.val_interval - 1, ""
-                )[: len(size_column)],
-                "validation_loss": fill_list_in_between(
-                    self.validation_loss_values, self.val_interval - 1, ""
-                )[: len(size_column)],
+                "mean loss": self.loss_values,
+                "mean_validation": prepare_validations(self.validation_values),
+                "mean_validation_loss": prepare_validations(self.validation_loss_values),
+                "mean sensitivity": prepare_validations(sensi),
+                "mean specificity": prepare_validations(spec),
+                "mean fall out": prepare_validations(fall_out),
+                "mean miss": prepare_validations(miss),
             }
         )
         path = str(
@@ -230,7 +252,7 @@ class Trainer:
         else:
             model = self.model_class.get_net(out_channels=self.out_channels)
 
-        model = torch.nn.DataParallel(model).to(self.device)  # TODO(cyril) : revert
+        model = torch.nn.DataParallel(model).to(self.device)
         # model = model.to(self.device)
 
         epoch_loss_values = []
@@ -398,9 +420,15 @@ class Trainer:
         # scheduler = torch.cuda.amp.GradScaler()
 
         dice_metric = DiceMetric(
-            include_background=True, reduction="mean", get_not_nans=False
+            include_background=False, reduction="mean", get_not_nans=False
         )
         # dice_metric = GeneralizedDiceScore(include_background=False)
+        confusion_matrix = ConfusionMatrixMetric(
+            include_background=False,
+            metric_name=["sensitivity", "specificity", "fall out", "miss rate"],
+            reduction="mean",
+            get_not_nans=False
+        )
 
         best_metric = -1
         best_metric_epoch = -1
@@ -671,14 +699,17 @@ class Trainer:
                                 plot_tensor(lab[i], "Validation : Labels", i)
 
                         dice_metric(y_pred=post_outputs, y=post_labels)
-                        # TODO(cyril): Add confusion matrix
+                        confusion_matrix(y_pred=post_outputs, y=post_labels)
 
-                    mean_roc = roc.aggregate().detach().item()
                     metric = dice_metric.aggregate().detach().item()
+                    confusion_values = confusion_matrix.aggregate() # .detach().item()
                     val_epoch_loss /= step
                     val_epoch_loss_values.append(val_epoch_loss)
                     self.validation_loss_values.append(val_epoch_loss)
                     self.validation_values.append(metric)
+                    self.confusion.append([res.detach().item() for res in confusion_values])
+
+
                     if self.config.use_val_loss_for_validation:
                         metric += val_epoch_loss
                     scheduler.step(metric)
@@ -686,10 +717,10 @@ class Trainer:
 
                     val_metric_values.append(metric)
 
-                    try:
-                        self.make_train_csv()
-                    except Exception as e:
-                        print(e)
+                    # try:
+                    self.make_train_csv()
+                    # except Exception as e:
+                    #     print(e)
 
                     if metric >= best_metric:
                         best_metric = metric
@@ -720,6 +751,7 @@ class Trainer:
 
                     logger.info(
                         f"Current epoch: {epoch + 1}, Current mean dice: {metric:.4f}"
+                        f"\nConfusion matrix: {[res.detach().item() for res in confusion_values]}"
                         f"\nBest mean dice: {best_metric:.4f} "
                         f"at epoch: {best_metric_epoch}"
                     )
@@ -745,7 +777,7 @@ if __name__ == "__main__":
 
     config.val_interval = 2
 
-    config.batch_size = 10
+    config.batch_size = 2 # 10
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
@@ -784,13 +816,13 @@ if __name__ == "__main__":
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results_multichannel_test_grad"  # "results_one_channel"
+    save_folder = "results/testing_csv" # "results_multichannel"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
     config.do_augmentation = False
-    config.num_samples = 25
+    config.num_samples = 1 # 20
     config.max_epochs = 155
 
     print(f"Saving to {config.results_path}")
