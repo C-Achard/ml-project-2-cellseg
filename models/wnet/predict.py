@@ -75,7 +75,7 @@ class PredictWNet:
             images (list): A list of images to predict the segmentation of
 
         Returns:
-            list: A list of predicted segmentations
+            np.ndarray: The predicted segmentations
         """
         images = torch.from_numpy(images).unsqueeze(1).float()
         images = images.to(self.device)
