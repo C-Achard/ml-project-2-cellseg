@@ -115,9 +115,9 @@ class Trainer:
         ######################
         # DEBUG
         self.testing_interval = 20
-        self.plot_train = True
-        self.show_grad = True
-        self.plot_val = True
+        self.plot_train = False
+        self.show_grad = False
+        self.plot_val = False
 
         if self.config.model_info.out_channels > 1:
             logger.info("Using SOFTMAX loss")
@@ -777,7 +777,7 @@ if __name__ == "__main__":
 
     config.val_interval = 2
 
-    config.batch_size = 2 # 10
+    config.batch_size = 10
 
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
@@ -816,17 +816,24 @@ if __name__ == "__main__":
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results/testing_csv" # "results_multichannel"  # "results_one_channel"
+    save_folder = "results/results_DiceCE_axons" # "results_multichannel"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
     config.do_augmentation = False
-    config.num_samples = 1 # 20
+    config.num_samples = 20
     config.max_epochs = 155
 
     print(f"Saving to {config.results_path}")
     trainer = Trainer(config)
     trainer.log_parameters()
+
+    #############
+    # DEBUG
+    trainer.plot_train = False
+    trainer.show_grad = False
+    trainer.plot_val = False
+    #############
 
     trainer.train()
