@@ -134,3 +134,4 @@ _
 .vscode/
 *.csv
 *.xlsx
+/dataset_clean/

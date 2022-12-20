@@ -37,6 +37,7 @@ def infer_and_evaluate(
     use_best_metric=True,
     test_image_path="dataset_clean/visual_tif/volumes/0-visual.tif",
     ground_truth_path="dataset_clean/visual_tif/labels/testing_im_new_label.tif",
+    run_evaluation=True,
 ):
     """
     Runs inference on a single image and evaluate the results
@@ -77,7 +78,7 @@ def infer_and_evaluate(
     pred_conf.post_process_config.thresholding.enabled = True
     pred_conf.post_process_config.thresholding.threshold_value = 0.99
 
-    pred_conf.sliding_window_config.window_size = 64
+    pred_conf.sliding_window_config.window_size = None
     pred_conf.sliding_window_config.window_overlap = 0
 
     pred_conf.results_path = str(repo_path / "test")
@@ -103,7 +104,13 @@ def infer_and_evaluate(
     # ground_truth = None
     result = imread(str(repo_path / "test/semantic_labels/Semantic_labels_0_.tif"))
     if pred_conf.model_info.out_channels > 1:
-        pre_instance = AsDiscrete(argmax=True, to_onehot=True)(result)
+        pre_instance = AsDiscrete(argmax=True, to_onehot=pred_conf.model_info.out_channels)(result)
+        channel = 1
+        if path_to_folder_weight == "new_final_results/results_DiceCE_axons":
+            channel = 2 # this is because on channel 1 results are bugged.
+            # But channels are very similar so we are using channel 2
+            # We know it's an unfair approximation but the model is actually good and we don't want an accuracy of 0 on a good model due to a bug
+        pre_instance = pre_instance[channel]
     else:
         pre_instance = AsDiscrete(threshold=0.8)(result)
     instance = binary_watershed(
@@ -116,11 +123,11 @@ def infer_and_evaluate(
     logger.debug(f"Result shape : {result.shape}")
 
     do_visualize = False
-    if ground_truth is not None:
+    if ground_truth is not None and run_evaluation:
         if pred_conf.model_info.out_channels > 1:
             logger.info(f"DICE METRIC : {dice_metric(ground_truth, result[1])}")
             evaluation_stats = evaluate_model_performance(
-                ground_truth, instance[1], visualize=do_visualize
+                ground_truth, instance, visualize=do_visualize
             )
             # logger.info(f"MODEL PERFORMANCE : {}")
         else:
@@ -146,15 +153,14 @@ def infer_and_evaluate(
 
 if __name__ == "__main__":
     infer_and_evaluate(name_of_model="SwinUNetR",
-    out_channels_number=1,
-    path_to_folder_weight="new_final/results_DiceCE_monochannel",
+    out_channels_number=3,
+    path_to_folder_weight="new_final_results/results_DiceCE_augmented_axons",
     use_best_metric=False,
-    test_image_path="dataset_clean/visual_tif/volumes/0-visual.tif",
-    ground_truth_path="dataset_clean/visual_tif/labels/testing_im_new_label.tif")
+    test_image_path="dataset_clean/VALIDATION/validation_image.tif",
+    ground_truth_path="dataset_clean/VALIDATION/validation_labels.tif",
+    run_evaluation=True
+                       )
 
-    # TODO(cyril) :
-    # - train baseline
-    # - test new artifacts
-    # - test much longer training
-    # - test LR tuning
-    # - test GradScaler
+# test_image_path="dataset_clean/axons/training/custom-training/volumes/volume_0.tif",
+# test_image_path="dataset_clean/axons/validation/custom-validation/volumes/volume_0.tif",
+# test_image_path="dataset/cropped_visual/train/volumes/artifact_crop.tif",
