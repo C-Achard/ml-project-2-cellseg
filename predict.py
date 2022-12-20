@@ -31,7 +31,7 @@ CONFIG_PATH = Path().absolute() / "cellseg3dmodule/inference_config.json"
 """
 Previous code by Cyril Achard and Maxime Vidal
 Adapted by Cyril
-Runs inference
+Runs inference on a chosen image with specified model and weights
 """
 
 class Inference:

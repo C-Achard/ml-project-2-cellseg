@@ -38,6 +38,7 @@ from dask_image.imread import imread
 """
 Previous code by Maxime Vidal and Cyril Achard
 Utilities used throughout the project
+Authors : Cyril Achard
 """
 
 def plot_tensor(tensor, title, channel):

@@ -2,6 +2,9 @@ from monai.networks.nets import SwinUNETR
 from torch import sigmoid
 from torch import softmax
 
+"""
+SwinUNetR model from MONAI used for multi-class segmentation
+"""
 
 def get_weights_file():
     return ""

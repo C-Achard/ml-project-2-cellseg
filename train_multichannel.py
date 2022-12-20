@@ -50,12 +50,12 @@ from utils import (
 
 from os import environ
 
-environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8" # for deterministic training
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 """
-Adapted from code by Cyril Achard and Maxime Vidal
+Adapted from code by Cyril Achard and Maxime Vidal, originally from MONAI tutorials
 Author : Cyril Achard
 Trains a model on several classes : can be artifacts or axons with our datasets
 """
@@ -414,10 +414,12 @@ class Trainer:
         optimizer = torch.optim.AdamW(
             model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
         )
+        logger.info("Creating scheduler")
         scheduler = ReduceLROnPlateau(
             optimizer, "max", patience=10, factor=0.5, verbose=True
         )
-        # scheduler = torch.cuda.amp.GradScaler()
+        logger.info("Creating scaler")
+        scaler = torch.cuda.amp.GradScaler()
 
         dice_metric = DiceMetric(
             include_background=False, reduction="mean", get_not_nans=False
@@ -489,51 +491,36 @@ class Trainer:
                     batch_data["image"].to(self.device),
                     batch_data["label"].to(self.device),
                 )
-                # with torch.cuda.amp.autocast():
-                #     logits = self.model_class.get_output(model, inputs)
-                #     loss = self.loss_function(logits, labels)
-                # scheduler.scale(loss).backward()
-                # scheduler.unscale_(optimizer)
-                # scheduler.step(optimizer)
-                # scheduler.update()
-                # optimizer.zero_grad()
 
                 optimizer.zero_grad()
                 logits = self.model_class.get_output(model, inputs)
-
-                # logger.debug(f"Output shape : {logits.shape}")
-                # logger.debug(f"Label shape : {labels.shape}")
-                # out = logits.detach().cpu()
-                # logger.debug(
-                #     f" Output max {out.max()}, output min {out.min()},"
-                #     f" output mean {out.mean()}, output median {np.median(out)}"
-                # )
                 if self.out_channels > 1:
                     ohe_labels = one_hot(
                         labels, num_classes=self.config.model_info.out_channels
                     )
                 else:
                     ohe_labels = labels
-                # # print(ohe_labels.min())
-                # print(ohe_labels[0,0,:,:,:].max())
-                # print(ohe_labels[0,1,:,:,:].max())
-                # print(ohe_labels[0,2,:,:,:].max())
-                #
-                # view = napari.viewer.Viewer()
-                #
 
-                # view.add_labels(labels[0, :,:,:,:].cpu().numpy().astype(dtype=np.int8), name="gt")
-                # view.add_labels(ohe_labels[0, 0, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 1")
-                # view.add_labels(ohe_labels[0, 1, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 2")
-                # view.add_labels(ohe_labels[0, 2, :,:,:].cpu().numpy().astype(dtype=np.int8), name="channel 3")
-                # napari.run()
-                # return None
-                # ohe_labels = torch.zeros_like(ohe_labels)
-                # for lab in labels:
-                #     if lab.max()==2:
-                #         ohe_labels[2, :,:,:] = lab
-                #     elif lab.max() == 1:
-                #         ohe_labels[1, :,:,:] = lab
+                loss = self.loss_function(  # softmax is done by DiceLoss
+                    logits,
+                    ohe_labels,
+                )
+                loss.backward()
+                optimizer.step()
+                epoch_loss += loss.detach().item()
+
+                # with torch.cuda.amp.autocast():
+                #     if self.out_channels > 1:
+                #         ohe_labels = one_hot(
+                #             labels, num_classes=self.config.model_info.out_channels
+                #         )
+                #     else:
+                #         ohe_labels = labels
+                #     logits = self.model_class.get_output(model, inputs)
+                #     loss = self.loss_function(  # softmax is done by DiceLoss
+                #         logits,
+                #         ohe_labels,
+                #     )
 
                 if self.plot_train:
                     test_logits = logits.detach().cpu().numpy()
@@ -566,11 +553,11 @@ class Trainer:
                                 logger.debug(f"Labels test shape {labels_test.shape}")
                                 plot_tensor(labels_test, f"Train : batch {j} labels", i)
 
-                loss = self.loss_function(  # softmax is done by DiceLoss
-                    logits,
-                    ohe_labels,
-                )
-                loss.backward()
+                # loss = self.loss_function(  # softmax is done by DiceLoss
+                #     logits,
+                #     ohe_labels,
+                # )
+                # loss.backward()
 
                 if self.show_grad and (epoch + 1) % self.testing_interval == 0:
                     grad_model = model.module if hasattr(model, "module") else model
@@ -578,7 +565,7 @@ class Trainer:
                     print(
                         f"Out channels shape {grad_model.out.conv[0].weight.grad.shape}"
                     )
-                    for i in range(3):
+                    for i in range(self.out_channels):
                         print(f"CHANNEL {i}")
                         grad = torch.abs(grad_model.out.conv[0].weight.grad)
                         print(f"Out channel {i} shape {grad[i].shape}")
@@ -588,8 +575,16 @@ class Trainer:
                         # print(f"Out channel {i} min {grad[i].min()}")
                         # print(f"Out channel {i} max {grad[i].max()}")
 
-                optimizer.step()
-                epoch_loss += loss.detach().item()
+                # optimizer.step()
+                # epoch_loss += loss.detach().item()
+
+                # scaler.scale(loss).backward()
+                # epoch_loss += loss.detach().item()
+                # scaler.unscale_(optimizer)
+                # scaler.step(optimizer)
+                # scaler.update()
+                # optimizer.zero_grad()
+
                 logger.info(
                     f"* {step - 1}/{len(train_ds) // train_loader.batch_size}, "
                     f"Train loss: {loss.detach().item():.4f}"
@@ -779,7 +774,7 @@ if __name__ == "__main__":
 
     config.batch_size = 10
 
-    repo_path = Path(__file__).resolve().parents[1]
+    repo_path = Path(__file__).resolve().parents[0]
     print(f"REPO PATH : {repo_path}")
 
     config.train_volume_directory = str(
@@ -816,14 +811,14 @@ if __name__ == "__main__":
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results/results_DiceCE_axons" # "results_multichannel"  # "results_one_channel"
+    save_folder = "results/results_DiceCE_axons_no_scaler" # "results_multichannel"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
     config.sampling = True
     config.do_augmentation = False
-    config.num_samples = 20
-    config.max_epochs = 155
+    config.num_samples = 15
+    config.max_epochs = 100
 
     print(f"Saving to {config.results_path}")
     trainer = Trainer(config)
@@ -832,7 +827,7 @@ if __name__ == "__main__":
     #############
     # DEBUG
     trainer.plot_train = False
-    trainer.show_grad = False
+    trainer.show_grad = True
     trainer.plot_val = False
     #############
 

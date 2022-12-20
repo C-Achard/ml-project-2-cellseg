@@ -1,5 +1,8 @@
 from monai.networks.nets import SegResNetVAE
 
+"""
+SegResNet model from MONAI used earlier
+"""
 
 def get_net(input_image_size, out_channels=1, dropout_prob=0.3):
     return SegResNetVAE(

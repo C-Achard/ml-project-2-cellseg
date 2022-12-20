@@ -1,6 +1,9 @@
 import torch
 from torch import nn
 
+"""
+Old TRAILMAP copy by Cyril Achard, unused here
+"""
 
 def get_weights_file():
     # return "TMP_TEST_40e.pth"

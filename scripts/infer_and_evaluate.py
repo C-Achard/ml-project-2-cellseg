@@ -26,10 +26,9 @@ if __name__ == "__main__":
     pred_conf.model_info.name = "SwinUNetR"
     pred_conf.weights_config.path = str(
         repo_path
-        # / "results"
-        # / f"results_augmented_lr2/{pred_conf.model_info.name}_best_metric.pth"
-        # / f"results_multichannel_test_grad/{pred_conf.model_info.name}_checkpoint.pth"
-        / f"results_multichannel_test_grad/{pred_conf.model_info.name}_best_metric.pth"
+        / "results"
+        / f"results_DiceCE_axons/{pred_conf.model_info.name}_best_metric.pth"
+        # / f"results_DiceCE_axons/{pred_conf.model_info.name}_checkpoint.pth"
         # repo_path / f"models/pretrained/Swin64_best_metric.pth"
     )
     pred_conf.model_info.out_channels = 3
@@ -48,7 +47,7 @@ if __name__ == "__main__":
     pred_conf.image = imread(
         str(
             repo_path
-            # / "dataset/somatomotor/augmented/c1images_with_artefact.tif"
+            # / "dataset/axons/training/custom_training/volumes_augmented/c1images_with_artefact.tif"
             # / "dataset/visual_tif/volumes/images.tif"
             / "dataset/axons/validation/validation-set/volumes/volume-0.tiff"
             # / "dataset/axons/training/training-set/volumes/volume-0.tiff"

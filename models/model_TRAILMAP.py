@@ -1,5 +1,8 @@
 from models.unet.model import UNet3D
 
+"""
+Pytorch port of TRAILMAP by Maxime Vidal
+"""
 
 def get_weights_file():
     # return "TMP_TEST_40e.pth"
