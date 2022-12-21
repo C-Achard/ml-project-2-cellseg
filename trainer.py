@@ -37,6 +37,12 @@ from utils import get_loss, create_dataset_dict, get_padding_dim
 
 logger = logging.getLogger(__name__)
 
+"""
+Original code from Maxime Vidal and Cyril Achard, adapted from MONAI tutorials
+Provided simply for comparison with other files
+Trains a model with the specified parameters in trainer.config
+"""
+
 
 class Trainer:
     def __init__(

@@ -9,12 +9,17 @@ import sys
 
 sys.path.append(str(Path(__file__) / "../../"))
 from post_processing import binary_watershed
-import scripts.make_artefact_labels as make_artefact_labels
+import make_artefact_labels as make_artefact_labels
 import time
 import warnings
 from napari.qt.threading import thread_worker
 from tqdm import tqdm
 import threading
+
+"""
+New code by Yves Paychère
+Fixes labels and allows to auto-detect artifacts and neurons based on a simple intenstiy threshold
+"""
 
 
 def relabel_non_unique_i(label, save_path, go_fast=False):
@@ -82,9 +87,16 @@ def ask_labels(unique_artefact):
     global returns
     returns = []
     i_labels_to_add_tmp = input(
-        "Which label do you want to add ? (separated by a comma):"
+        "Which labels do you want to add (0 to skip) ? (separated by a comma):"
     )
     i_labels_to_add_tmp = [int(i) for i in i_labels_to_add_tmp.split(",")]
+
+    if i_labels_to_add_tmp == [0]:
+        print("no label added")
+        returns = [[]]
+        print("close the napari window to continue")
+        return
+
     for i in i_labels_to_add_tmp:
         if i == 0:
             print("0 is not a valid label")
@@ -117,6 +129,7 @@ def ask_labels(unique_artefact):
                 i_labels_to_add_tmp.remove(i)
 
     returns = [i_labels_to_add_tmp]
+    print("close the napari window to continue")
 
 
 def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay=0.3):
@@ -145,7 +158,12 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
     print("detection of artefact (in progress)")
     image = imread(image_path)
     artefact = make_artefact_labels.make_artefact_labels(
-        image, imread(label_path), do_multi_label=True
+        image,
+        imread(label_path),
+        do_multi_label=True,
+        threshold_artefact_brightness_percent=30,
+        threshold_artefact_size_percent=0,
+        contrast_power=30,
     )
     print("detection of artefact (done)")
     # ask the user if the artefact are not neurons
@@ -158,7 +176,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         t.start()
         artefact_copy = np.where(np.isin(artefact, i_labels_to_add), 0, artefact)
         viewer = napari.view_image(image)
-        viewer.add_labels(artefact_copy)
+        viewer.add_labels(artefact_copy, name="potential neurons")
         napari.run()
         t.join()
         i_labels_to_add_tmp = returns[0]
@@ -169,7 +187,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         artefact_copy = np.where(np.isin(artefact, i_labels_to_add_tmp), artefact, 0)
         print("these labels will be added")
         viewer = napari.view_image(image)
-        viewer.add_labels(artefact_copy)
+        viewer.add_labels(artefact_copy, name="labels added")
         napari.run()
         revert = input("Do you want to revert? (y/n)")
         if revert != "y":
@@ -180,6 +198,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         loop = input("Do you want to add more labels? (y/n)") == "y"
     # add the label to the label image
     new_label_path = initial_label_path[:-4] + "_new_label.tif"
+    print("the new label will be saved in", new_label_path)
     add_label(imread(label_path), artefact, new_label_path, i_labels_to_add)
     # store the artefact remaining
     new_artefact_path = initial_label_path[:-4] + "_artefact.tif"
@@ -278,23 +297,19 @@ def relabel_non_unique_i_folder(folder_path, end_of_new_name="relabeled"):
 if __name__ == "__main__":
 
     repo_path = Path(__file__).resolve().parents[1]
-    file_path = str(Path(
-        # repo_path / "dataset/visual_tif/labels/images.tif"
-        repo_path / "dataset/somatomotor/labels/c5labels.tif"
-    ))
-    image_path = str(Path(
-        # repo_path, "dataset/visual_tif/volumes/images.tif"
-        repo_path, "dataset/somatomotor/volumes/c5images.tif"
-    ))
-    #
-    # volume_directory = repo_path / "dataset/somatomotor"
-    # images_filepaths = sorted(
-    #     [str(file) for file in Path(volume_directory/ "volumes").glob("*.tif")]
-    # )
-    # labels_filepath = sorted(
-    #     [str(file) for file in Path(volume_directory / "labels").glob("*.tif")]
-    # )
-    # for image_path, file_path in zip(images_filepaths, labels_filepath):
-    relabel(image_path, file_path, check_for_unicity=True, go_fast=False)
+    file_path = str(
+        Path(
+            # repo_path / "dataset/visual_tif/labels/images.tif"
+            repo_path
+            / "dataset/somatomotor/labels/c5labels.tif"
+        )
+    )
+    image_path = str(
+        Path(
+            # repo_path, "dataset/visual_tif/volumes/images.tif"
+            repo_path,
+            "dataset/somatomotor/volumes/c5images.tif",
+        )
+    )
 
-    # relabel_non_unique_i_folder(repo_path/ "dataset/somatomotor/labels")
+    relabel(image_path, file_path, check_for_unicity=True, go_fast=False)

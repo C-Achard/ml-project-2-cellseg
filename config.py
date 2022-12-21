@@ -17,6 +17,12 @@ from models import model_TRAILMAP as TRAILMAP_MS
 from post_processing import binary_connected
 from post_processing import binary_watershed
 
+"""
+Original config file by Cyril Achard
+Updated for the project
+Contains all the settings for models training and inference
+"""
+
 MODEL_LIST = {
     "VNet": VNet,
     "SegResNet": SegResNet,
@@ -189,6 +195,7 @@ class TrainerConfig:
         self.deterministic = True
         self.grad_norm_clip = 1.0
         self.weight_decay = 1e-5
+        self.use_val_loss_for_validation = False
         self.compute_instance_boundaries = (
             False  # Change class loss weights in utils.get_loss TODO: choose in config
         )

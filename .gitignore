@@ -133,3 +133,4 @@ _
 #vscode
 .vscode/
 *.csv
+*.xlsx

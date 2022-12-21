@@ -1,0 +1,2 @@
+These scripts were mostly written by Maxime Vidal and are not used in this project.
+We still provide them for the sake of completeness.

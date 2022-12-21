@@ -4,9 +4,15 @@ from pathlib import Path
 from tifffile import imread, imwrite
 from skimage.morphology import remove_small_objects
 
+"""
+New code to label axons in the TRAILMAP dataset
+Author : Cyril Achard
+"""
+
 
 def normalize(image):
-    return (image - image.mean()) / image.std()
+    # return (image - image.mean()) / image.std()
+    return (image - image.min()) / (image.max() - image.min())
 
 
 def labeL_axons(volume_directory):
@@ -18,7 +24,8 @@ def labeL_axons(volume_directory):
     images = [imread(image) for image in images_filepaths]
     images = [normalize(im) for im in images]
 
-    labels = [np.where(im > 0.99, True, False) for im in images]
+    # labels = [np.where(im > 0.215, True, False) for im in images] # validation is more tricky
+    labels = [np.where(im > 0.35, True, False) for im in images]
     labels = [remove_small_objects(lab, 70) for lab in labels]
     labels = [np.where(lab == 1, 2, 0) for lab in labels]
 
@@ -39,14 +46,14 @@ def labeL_axons(volume_directory):
     [view.add_labels(lab) for lab in labels]
     [view.add_image(im) for im in images]
 
-    view.window.resize(3000, 1400)
+    # view.window.resize(3000, 1400)
     napari.run()
 
 
 if __name__ == "__main__":
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
-    # path = repo_path / "dataset/axons/training/training-set/volumes"
-    path = repo_path / "dataset/axons/validation/validation-set/volumes"
+    path = repo_path / "dataset/axons/training/training-set/volumes"
+    # path = repo_path / "dataset/axons/validation/validation-set/volumes"
 
     labeL_axons(str(path))

@@ -35,6 +35,21 @@ import numpy as np
 from skimage.measure import regionprops
 from dask_image.imread import imread
 
+"""
+Previous code by Maxime Vidal and Cyril Achard
+Utilities used throughout the project
+Authors : Cyril Achard
+"""
+
+
+def plot_tensor(tensor, title, channel):
+    z, x, y = tensor.nonzero()
+    fig = plt.figure(figsize=(10, 10))
+    ax = plt.axes(projection="3d")
+    ax.set_title(f"{title} channel {channel}")
+    ax.scatter3D(x, y, z, c=z, alpha=1)
+    plt.show()
+
 
 def normalize(image, threshold=0.9):
     """Thresholds then normalizes an image using the mean and standard deviation"""
@@ -105,7 +120,9 @@ def create_dataset_dict(volume_directory, label_directory):
         [str(file) for file in Path(label_directory).glob("*.tif")]
     )
     if len(images_filepaths) == 0 or len(labels_filepaths) == 0:
-        raise ValueError(f"Data folders are empty \n{volume_directory} \n{label_directory}")
+        raise ValueError(
+            f"Data folders are empty \n{volume_directory} \n{label_directory}"
+        )
 
     logger.info("Images :")
     for file in images_filepaths:
@@ -338,4 +355,3 @@ def define_matplotlib_defaults():
     p["lines.markeredgecolor"] = "auto"
     p["lines.markerfacecolor"] = "auto"
     p["lines.markersize"] = 3
-

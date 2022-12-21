@@ -11,24 +11,29 @@ from monai.transforms import (
     AsDiscrete,
     AddChannel,
     Compose,
-    EnsureChannelFirst,
     EnsureType,
     ToTensor,
     Zoom,
-    ScaleIntensityRange,
 )
 from tifffile import imwrite
 
 from config import InferenceWorkerConfig
 from config import WEIGHTS_PATH
 from post_processing import binary_watershed, binary_connected
-from scripts.weights_download import WeightsDownloader
+
+# from scripts.old.weights_download import WeightsDownloader
 
 logger = logging.getLogger(__name__)
 
 SWIN = "SwinUNetR"
 
 CONFIG_PATH = Path().absolute() / "cellseg3dmodule/inference_config.json"
+
+"""
+Previous code by Cyril Achard and Maxime Vidal
+Adapted by Cyril
+Runs inference on a chosen image with specified model and weights
+"""
 
 
 class Inference:
@@ -184,7 +189,7 @@ class Inference:
         if self.config.keep_on_cpu:
             dataset_device = "cpu"
         else:
-            dataset_device = self.config.device
+            dataset_device = self.device
 
         window_size = self.config.sliding_window_config.window_size
         window_overlap = self.config.sliding_window_config.window_overlap
@@ -194,7 +199,7 @@ class Inference:
             roi_size=window_size,
             sw_batch_size=1,
             predictor=model_output,
-            sw_device=self.config.device,
+            sw_device=self.device,
             device=dataset_device,
             overlap=window_overlap,
             progress=True,
@@ -273,11 +278,11 @@ class Inference:
                 )
             else:
                 model = model_class.get_net()
-            model = model.to(self.config.device)
+            model = model.to(self.device)
 
             self.log_parameters()
 
-            model.to(self.config.device)
+            model.to(self.device)
 
             if not post_process_config.thresholding.enabled:
                 post_process_transforms = EnsureType()
@@ -298,7 +303,7 @@ class Inference:
             model.load_state_dict(
                 torch.load(
                     weights_path,
-                    map_location=self.config.device,
+                    map_location=self.device,
                 )
             )
             self.log("Done")
@@ -361,10 +366,10 @@ class Inference:
                 logger.info(f" Output shape: {out.shape}")
                 out = np.transpose(out, (2, 1, 0))
 
-            if self.config.run_semantic_evaluation:
-                from evaluate_semantic import run_evaluation
+            # if self.config.run_semantic_evaluation:
+            # from scripts.old.evaluate_semantic import run_evaluation
 
-                run_evaluation(out)
+            # run_evaluation(out)
 
             model.to("cpu")
             return file_path

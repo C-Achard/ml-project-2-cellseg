@@ -36,6 +36,11 @@ from predict import Inference
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 
+"""
+Demo of training/inference by Cyril Achard
+Adapted from previous code by Maxime Vidal and Cyril Achard
+"""
+
 
 class Trainer:
     def __init__(
@@ -662,7 +667,7 @@ class Inference:
         if self.config.keep_on_cpu:
             dataset_device = "cpu"
         else:
-            dataset_device = self.config.device
+            dataset_device = self.device
 
         window_size = self.config.sliding_window_config.window_size
         window_overlap = self.config.sliding_window_config.window_overlap
@@ -672,7 +677,7 @@ class Inference:
             roi_size=window_size,
             sw_batch_size=1,
             predictor=model_output,
-            sw_device=self.config.device,
+            sw_device=self.device,
             device=dataset_device,
             overlap=window_overlap,
             progress=True,
@@ -730,15 +735,18 @@ class Inference:
                 model = model_class.get_net(
                     out_channels=self.config.model_info.out_channels
                 )
-            model = model.to(self.config.device)
+            model = model.to(self.device)
 
             self.log_parameters()
 
-            model.to(self.config.device)
+            model.to(self.device)
 
             if not post_process_config.thresholding.enabled:
                 post_process_transforms = EnsureType()
-            elif post_process_config.thresholding.enabled and self.config.model_info.out_channels > 1:
+            elif (
+                post_process_config.thresholding.enabled
+                and self.config.model_info.out_channels > 1
+            ):
                 self.log("Using argmax and one-hot format")
                 t = post_process_config.thresholding.threshold_value
                 post_process_transforms = Compose(
@@ -766,7 +774,7 @@ class Inference:
             model.load_state_dict(
                 torch.load(
                     weights_path,
-                    map_location=self.config.device,
+                    map_location=self.device,
                 )
             )
             self.log("Done")
@@ -806,7 +814,8 @@ class Inference:
                         out = out[:, 1, :, :, :]
                     if self.config.post_process_config.thresholding.enabled:
                         out = (
-                            out > self.config.post_process_config.thresholding.threshold_value
+                            out
+                            > self.config.post_process_config.thresholding.threshold_value
                         )
                     logger.info(f" Output shape: {out.shape}")
                     out = np.squeeze(out)
@@ -825,7 +834,6 @@ class Inference:
                 self.log("Saving prediction...")
                 self.save_image("prediction", out, "prediction")
                 self.log("Done")
-
 
                 # if self.transforms["thresh"][0]:
                 #     out = out > self.transforms["thresh"][1]
@@ -860,8 +868,6 @@ class Inference:
                 return file_path
         except Exception as e:
             raise e
-
-
 
 
 if __name__ == "__main__":
