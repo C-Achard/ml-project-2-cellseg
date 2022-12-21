@@ -94,7 +94,9 @@ def evaluate_model_performance(labels, model_labels, do_print=True, visualize=Fa
     # calculate the number of neurons fused
     neurons_fused = len(map_fused_neurons)
     # calculate the number of neurons not found
-    neurons_found_labels = np.unique([i[1] for i in map_labels_existing] + [i[1] for i in map_fused_neurons])
+    neurons_found_labels = np.unique(
+        [i[1] for i in map_labels_existing] + [i[1] for i in map_fused_neurons]
+    )
     unique_labels = np.unique(labels)
     neurons_not_found = len(unique_labels) - 1 - len(neurons_found_labels)
     # artefacts found
@@ -150,20 +152,37 @@ def evaluate_model_performance(labels, model_labels, do_print=True, visualize=Fa
             viewer = napari.Viewer()
             viewer.add_labels(labels, name="ground truth")
             viewer.add_labels(model_labels, name="model's labels")
-            found_model = np.where(np.isin(model_labels, [i[0] for i in map_labels_existing]), model_labels, 0)
+            found_model = np.where(
+                np.isin(model_labels, [i[0] for i in map_labels_existing]),
+                model_labels,
+                0,
+            )
             viewer.add_labels(found_model, name="model's labels found")
-            found_label = np.where(np.isin(labels, [i[1] for i in map_labels_existing]), labels, 0)
+            found_label = np.where(
+                np.isin(labels, [i[1] for i in map_labels_existing]), labels, 0
+            )
             viewer.add_labels(found_label, name="ground truth found")
-            neurones_not_found_labels = np.where(np.isin(unique_labels, neurons_found_labels) == False, unique_labels,
-                                                 0)
-            neurones_not_found_labels = neurones_not_found_labels[neurones_not_found_labels != 0]
+            neurones_not_found_labels = np.where(
+                np.isin(unique_labels, neurons_found_labels) == False, unique_labels, 0
+            )
+            neurones_not_found_labels = neurones_not_found_labels[
+                neurones_not_found_labels != 0
+            ]
             not_found = np.where(np.isin(labels, neurones_not_found_labels), labels, 0)
             viewer.add_labels(not_found, name="ground truth not found")
-            artefacts_found = np.where(np.isin(model_labels, [i[0] for i in new_labels]), model_labels, 0)
+            artefacts_found = np.where(
+                np.isin(model_labels, [i[0] for i in new_labels]), model_labels, 0
+            )
             viewer.add_labels(artefacts_found, name="model's labels artefacts")
-            fused_model = np.where(np.isin(model_labels, [i[0] for i in map_fused_neurons]), model_labels, 0)
+            fused_model = np.where(
+                np.isin(model_labels, [i[0] for i in map_fused_neurons]),
+                model_labels,
+                0,
+            )
             viewer.add_labels(fused_model, name="model's labels fused")
-            fused_label = np.where(np.isin(labels, [i[1] for i in map_fused_neurons]), labels, 0)
+            fused_label = np.where(
+                np.isin(labels, [i[1] for i in map_fused_neurons]), labels, 0
+            )
             viewer.add_labels(fused_label, name="ground truth fused")
             napari.run()
 
@@ -179,6 +198,7 @@ def evaluate_model_performance(labels, model_labels, do_print=True, visualize=Fa
         mean_ratio_false_pixel_artefact,
     )
 
+
 def save_as_csv(results, path):
     """
     Save the results as a csv file
@@ -191,19 +211,22 @@ def save_as_csv(results, path):
         The path to save the csv file
     """
     print(np.array(results).shape)
-    df = pd.DataFrame([results],
-                      columns=[
-                          'neurons_found',
-                          'neurons_fused',
-                          'neurons_not_found',
-                          'artefacts_found',
-                          'mean_true_positive_ratio_model',
-                          'mean_ratio_pixel_found',
-                          'mean_ratio_pixel_found_fused',
-                          'mean_true_positive_ratio_model_fused',
-                          'mean_ratio_false_pixel_artefact'
-                      ])
+    df = pd.DataFrame(
+        [results],
+        columns=[
+            "neurons_found",
+            "neurons_fused",
+            "neurons_not_found",
+            "artefacts_found",
+            "mean_true_positive_ratio_model",
+            "mean_ratio_pixel_found",
+            "mean_ratio_pixel_found_fused",
+            "mean_true_positive_ratio_model_fused",
+            "mean_ratio_false_pixel_artefact",
+        ],
+    )
     df.to_csv(path, index=False)
+
 
 if __name__ == "__main__":
     """
@@ -237,6 +260,7 @@ if __name__ == "__main__":
     evaluate_model_performance(labels, labels_model,visualize=True)
     """
     from tifffile import imread
-    labels=imread("dataset_clean/visual_tif/labels/testing_im_new_label.tif")
-    labels_model=imread("test/instance_labels.tif")
-    evaluate_model_performance(labels, labels_model,visualize=True)
+
+    labels = imread("dataset_clean/visual_tif/labels/testing_im_new_label.tif")
+    labels_model = imread("test/instance_labels.tif")
+    evaluate_model_performance(labels, labels_model, visualize=True)

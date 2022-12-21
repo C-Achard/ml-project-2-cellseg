@@ -31,7 +31,6 @@ def delete_big_instances(instance, threshold=5000):
 
 
 def infer_and_evaluate(
-    name_of_model="SwinUNetR",
     out_channels_number=1,
     path_to_folder_weight="new_final/results_DiceCE_monochannel_aug",
     use_best_metric=True,
@@ -44,17 +43,17 @@ def infer_and_evaluate(
     ------
     Parameters
     ----------
-    name_of_model : str
-        Name of the model to use
-    out_channels_number : int
-        Number of output channels (see mono or multi class in folder name)
-    folder : str
-        Name of the folder where the weights saved
-    test_image_path : str
-        Path to the image to test
-    ground_truth_path : str
-        Path to the ground truth labels
+    out_channels_number: int
+        Number of output channels. Use 1 for monochannel, 3 for multichannel
+    path_to_folder_weight: str
+        Path to the folder containing the weights. Do not point to the pth file, only the directory
+    use_best_metric: bool
+        If True, use the weights from the best metric. If False, use the weights from the last epoch (checkpoint)
+    run_evaluation: bool
+        If True, run the evaluation and saves stats as csv. If False, only run inference
     """
+    name_of_model = "SwinUNetR"
+
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.INFO)
     repo_path = Path(__file__).resolve().parents[1]
@@ -63,9 +62,9 @@ def infer_and_evaluate(
     pred_conf = InferenceWorkerConfig()
     pred_conf.model_info.name = name_of_model
     if use_best_metric:
-        weight_type="best_metric"
+        weight_type = "best_metric"
     else:
-        weight_type="checkpoint"
+        weight_type = "checkpoint"
     pred_conf.weights_config.path = str(
         repo_path
         / path_to_folder_weight
@@ -104,10 +103,12 @@ def infer_and_evaluate(
     # ground_truth = None
     result = imread(str(repo_path / "test/semantic_labels/Semantic_labels_0_.tif"))
     if pred_conf.model_info.out_channels > 1:
-        pre_instance = AsDiscrete(argmax=True, to_onehot=pred_conf.model_info.out_channels)(result)
+        pre_instance = AsDiscrete(
+            argmax=True, to_onehot=pred_conf.model_info.out_channels
+        )(result)
         channel = 1
         if path_to_folder_weight == "new_final_results/results_DiceCE_axons":
-            channel = 2 # this is because on channel 1 results are bugged.
+            channel = 2  # this is because on channel 1 results are bugged.
             # But channels are very similar so we are using channel 2
             # We know it's an unfair approximation but the model is actually good and we don't want an accuracy of 0 on a good model due to a bug
         pre_instance = pre_instance[channel]
@@ -152,15 +153,32 @@ def infer_and_evaluate(
 
 
 if __name__ == "__main__":
-    infer_and_evaluate(name_of_model="SwinUNetR",
-    out_channels_number=3,
-    path_to_folder_weight="new_final_results/results_DiceCE_augmented_axons",
-    use_best_metric=False,
-    test_image_path="dataset_clean/VALIDATION/validation_image.tif",
-    ground_truth_path="dataset_clean/VALIDATION/validation_labels.tif",
-    run_evaluation=True
-                       )
+    """
+    Runs inference on a single image and evaluate the results
+    ------
+    Parameters
+    ----------
+    out_channels_number: int
+        Number of output channels. Use 1 for monochannel, 3 for multichannel
+    path_to_folder_weight: str
+        Path to the folder containing the weights. Do not point to the pth file, only the directory
+    use_best_metric: bool
+        If True, use the weights from the best metric. If False, use the weights from the last epoch (checkpoint)
+    run_evaluation: bool
+        If True, run the evaluation and saves stats as csv. If False, only run inference
+    """
 
-# test_image_path="dataset_clean/axons/training/custom-training/volumes/volume_0.tif",
-# test_image_path="dataset_clean/axons/validation/custom-validation/volumes/volume_0.tif",
-# test_image_path="dataset/cropped_visual/train/volumes/artifact_crop.tif",
+    # DO NOT CHANGE THE IMAGE USED TO REPRODUCE THE RESULTS
+    # use data in dataset_clean/VALIDATION/
+
+    infer_and_evaluate(
+        out_channels_number=3,
+        path_to_folder_weight="weights_results/results_DiceCE_multichannel",  # use 3 channels
+        # path_to_folder_weight="weights_results/results_DiceCE_multichannel_aug", # use 3 channels
+        # path_to_folder_weight="weights_results/results_DiceCE_monochannel_aug", # use 1 channel
+        # path_to_folder_weight="weights_results/results_DiceCE_monochannel", # use 1 channel
+        use_best_metric=False,
+        test_image_path="dataset_clean/VALIDATION/validation_image.tif",  # DO NOT CHANGE
+        ground_truth_path="dataset_clean/VALIDATION/validation_labels.tif",  # DO NOT CHANGE
+        run_evaluation=True,
+    )

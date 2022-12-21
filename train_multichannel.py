@@ -49,7 +49,7 @@ from utils import (
 
 from os import environ
 
-environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8" # for deterministic training
+environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # for deterministic training
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -146,9 +146,9 @@ class Trainer:
 
         def prepare_validations(val):
             """Fills the gap due to val_interval with blank"""
-            return fill_list_in_between(
-                val, self.val_interval - 1, ""
-            )[: len(size_column)]
+            return fill_list_in_between(val, self.val_interval - 1, "")[
+                : len(size_column)
+            ]
 
         if len(self.confusion) == 1:
             confusion = self.confusion[0]
@@ -163,13 +163,14 @@ class Trainer:
             fall_out = confusion[:, 2]
             miss = confusion[:, 3]
 
-
         self.df = pd.DataFrame(
             {
                 "epoch": size_column,
                 "mean loss": self.loss_values,
                 "mean_validation": prepare_validations(self.validation_values),
-                "mean_validation_loss": prepare_validations(self.validation_loss_values),
+                "mean_validation_loss": prepare_validations(
+                    self.validation_loss_values
+                ),
                 "mean sensitivity": prepare_validations(sensi),
                 "mean specificity": prepare_validations(spec),
                 "mean fall out": prepare_validations(fall_out),
@@ -428,7 +429,7 @@ class Trainer:
             include_background=False,
             metric_name=["sensitivity", "specificity", "fall out", "miss rate"],
             reduction="mean",
-            get_not_nans=False
+            get_not_nans=False,
         )
 
         best_metric = -1
@@ -697,13 +698,14 @@ class Trainer:
                         confusion_matrix(y_pred=post_outputs, y=post_labels)
 
                     metric = dice_metric.aggregate().detach().item()
-                    confusion_values = confusion_matrix.aggregate() # .detach().item()
+                    confusion_values = confusion_matrix.aggregate()  # .detach().item()
                     val_epoch_loss /= step
                     val_epoch_loss_values.append(val_epoch_loss)
                     self.validation_loss_values.append(val_epoch_loss)
                     self.validation_values.append(metric)
-                    self.confusion.append([res.detach().item() for res in confusion_values])
-
+                    self.confusion.append(
+                        [res.detach().item() for res in confusion_values]
+                    )
 
                     if self.config.use_val_loss_for_validation:
                         metric += val_epoch_loss
@@ -757,79 +759,99 @@ class Trainer:
         )
 
 
-if __name__ == "__main__":
-
-    # from tifffile import imread
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG)
-    logger.info("Starting training")
-
+def initialize_config():
     config = TrainerConfig()
-    # config.model_info.name = "SegResNet"
     config.model_info.name = "SwinUNetR"
-    # config.model_info.name = "TRAILMAP_MS"
     # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
 
     config.val_interval = 2
 
-    config.batch_size = 10
+    config.learning_rate = 1e-4
+    config.use_val_loss_for_validation = False
+    # config.plot_training_inputs = True
+    config.sampling = True
+    config.do_augmentation = False # disabled to ensure there were no issues with it
+    config.num_samples = 15
+    config.max_epochs = 100
 
     repo_path = Path(__file__).resolve().parents[0]
     logger.info(f"REPO PATH : {repo_path}")
 
-    config.train_volume_directory = str(
-        repo_path / "dataset/somatomotor/augmented_volumes"
-        # repo_path
-        # / "dataset/axons/training/custom-training/volumes"
-    )
-    config.train_label_directory = str(
-        # repo_path / "dataset/visual_tif/labels/labels_sem"
-        # repo_path / "dataset/visual_tif/artefact_neurons"
-        repo_path / "dataset/somatomotor/lab_sem"
-        # repo_path
-        # / "dataset/axons/training/custom-training/labels"
-    )
+    return config, repo_path
 
-    # use these if not using validation_percent
-    config.validation_volume_directory = str(
-        # repo_path / "dataset/somatomotor/volumes"
-        repo_path
-        # / "dataset/axons/validation/custom-validation/volumes"
-        / "dataset/visual_tif/volumes"
-        # str(repo_path / "dataset/visual_tif/volumes")
-    )
-    config.validation_label_directory = str(
-        repo_path
-        # / "dataset/axons/validation/custom-validation/labels"
-        # repo_path / "dataset/somatomotor/artefact_neurons"
-        / "dataset/visual_tif/labels_sem"
-        # repo_path / "dataset/somatomotor/lab_sem"
-    )
 
-    config.model_info.out_channels = 1
-    config.learning_rate = 1e-4
-    config.use_val_loss_for_validation = False
-    # config.plot_training_inputs = True
-
-    save_folder = "results/results_TA_test" # "results_multichannel"  # "results_one_channel"
-    config.results_path = str(repo_path / save_folder)
-    (repo_path / save_folder).mkdir(exist_ok=True)
-
-    config.sampling = True
-    config.do_augmentation = False
-    config.num_samples = 15
-    config.max_epochs = 100
-
+def start_train(config):
     logger.info(f"Saving to {config.results_path}")
     trainer = Trainer(config)
     trainer.log_parameters()
 
     #############
     # DEBUG
-    trainer.testing_interval = 2
-    trainer.plot_train = True
+    trainer.testing_interval = 20
+    trainer.plot_train = False
     trainer.show_grad = False
-    trainer.plot_val = True
+    trainer.plot_val = False
     #############
 
     trainer.train()
+
+
+if __name__ == "__main__":
+    """
+    Trains the mono and multichannel models
+    To reproduce the results of monochannel, use the indicated patths and channel numbers
+    """
+
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.DEBUG)
+    logger.info("Starting training")
+    config, repo_path = initialize_config()
+    ###################################################
+    ###################################################
+    ###################################################
+    ###################################################
+
+    # CHANGE ONLY THE PARAMETERS BELOW for reproducibility
+
+    # BATCH SIZE
+    config.batch_size = 10  # change if memory issues
+
+    # PATHS
+    config.train_volume_directory = str(
+        repo_path
+        /
+         "dataset_clean/somatomotor/volumes" # USE FOR : monochannel
+        # "dataset_clean/somatomotor/augmented_volumes"  # USE FOR : monochannel_aug
+        #  "dataset_clean/axons/training/custom-training/volumes" # USE FOR : multichannel
+        # "dataset_clean/axons/training/custom-training/volumes_augmented" # USE FOR : multichannel_aug
+    )
+    config.train_label_directory = str(
+        repo_path
+        / "dataset_clean/somatomotor/lab_sem"  # USE FOR : monochannel and monochannel_aug
+        # / "dataset_clean/axons/training/custom-training/labels" # USE FOR : multichannel and multichannel_aug
+    )
+
+    # use these if not using validation_percent
+    config.validation_volume_directory = str(
+        repo_path
+        / "dataset_clean/visual_tif/volumes"  # USE FOR : monochannel and monochannel_aug
+        # / "dataset_clean/axons/validation/custom-validation/volumes" # USE FOR : multichannel and multichannel_aug
+    )
+    config.validation_label_directory = str(
+        repo_path
+        / "dataset_clean/visual_tif/labels_sem"  # USE FOR : monochannel and monochannel_aug
+        # / "dataset_clean/axons/validation/custom-validation/labels" # USE FOR : multichannel and multichannel_aug
+    )
+
+    # CHANGE CHANNELS FOR MONO/MULTI
+    config.model_info.out_channels = 1  # USE : 1 for monochannel
+    # config.model_info.out_channels = 3  # USE : 3 for multichannel
+
+    save_folder = "results/TESTTEST-training_output"
+    ###################################################
+    ###################################################
+    ###################################################
+    ###################################################
+    config.results_path = str(repo_path / save_folder)
+    (repo_path / save_folder).mkdir(exist_ok=True)
+    start_train(config)

@@ -20,6 +20,7 @@ from tifffile import imwrite
 from config import InferenceWorkerConfig
 from config import WEIGHTS_PATH
 from post_processing import binary_watershed, binary_connected
+
 # from scripts.old.weights_download import WeightsDownloader
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ Previous code by Cyril Achard and Maxime Vidal
 Adapted by Cyril
 Runs inference on a chosen image with specified model and weights
 """
+
 
 class Inference:
     def __init__(
@@ -365,9 +367,9 @@ class Inference:
                 out = np.transpose(out, (2, 1, 0))
 
             # if self.config.run_semantic_evaluation:
-                # from scripts.old.evaluate_semantic import run_evaluation
+            # from scripts.old.evaluate_semantic import run_evaluation
 
-                # run_evaluation(out)
+            # run_evaluation(out)
 
             model.to("cpu")
             return file_path

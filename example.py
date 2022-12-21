@@ -743,7 +743,10 @@ class Inference:
 
             if not post_process_config.thresholding.enabled:
                 post_process_transforms = EnsureType()
-            elif post_process_config.thresholding.enabled and self.config.model_info.out_channels > 1:
+            elif (
+                post_process_config.thresholding.enabled
+                and self.config.model_info.out_channels > 1
+            ):
                 self.log("Using argmax and one-hot format")
                 t = post_process_config.thresholding.threshold_value
                 post_process_transforms = Compose(
@@ -811,7 +814,8 @@ class Inference:
                         out = out[:, 1, :, :, :]
                     if self.config.post_process_config.thresholding.enabled:
                         out = (
-                            out > self.config.post_process_config.thresholding.threshold_value
+                            out
+                            > self.config.post_process_config.thresholding.threshold_value
                         )
                     logger.info(f" Output shape: {out.shape}")
                     out = np.squeeze(out)
@@ -830,7 +834,6 @@ class Inference:
                 self.log("Saving prediction...")
                 self.save_image("prediction", out, "prediction")
                 self.log("Done")
-
 
                 # if self.transforms["thresh"][0]:
                 #     out = out > self.transforms["thresh"][1]
@@ -865,8 +868,6 @@ class Inference:
                 return file_path
         except Exception as e:
             raise e
-
-
 
 
 if __name__ == "__main__":
