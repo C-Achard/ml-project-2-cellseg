@@ -19,6 +19,7 @@ Previous code by Cyril Achard and Maxime Vidal
 """
 # TODO(cyril): Voronoi Otsu labeling
 
+
 def binary_connected(volume, thres=0.5, thres_small=3, scale_factors=(1.0, 1.0, 1.0)):
     r"""Convert binary foreground probability maps to instance masks via
     connected-component labeling.

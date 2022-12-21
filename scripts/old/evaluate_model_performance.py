@@ -39,7 +39,7 @@ def map_labels(labels, model_labels):
                     new_labels.append([i, true_positive_ratio_model])
             else:
                 ratio_pixel_found = counts[ii] / np.sum(labels == unique[ii])
-                #print(i,unique[ii],ratio_pixel_found)
+                # print(i,unique[ii],ratio_pixel_found)
                 if ratio_pixel_found > 0.5:
                     total_pixel_found += np.sum(counts[ii])
                     tmp_map.append(
@@ -54,7 +54,7 @@ def map_labels(labels, model_labels):
     return map_labels_existing, map_fused_neurons, new_labels
 
 
-def evaluate_model_performance(labels, model_labels, do_print=True,visualize=False):
+def evaluate_model_performance(labels, model_labels, do_print=True, visualize=False):
     """Evaluate the model performance.
     Parameters
     ----------
@@ -94,9 +94,11 @@ def evaluate_model_performance(labels, model_labels, do_print=True,visualize=Fal
     # calculate the number of neurons fused
     neurons_fused = len(map_fused_neurons)
     # calculate the number of neurons not found
-    neurons_found_labels = np.unique([i[1] for i in map_labels_existing]+[i[1] for i in map_fused_neurons])
-    unique_labels=np.unique(labels)
-    neurons_not_found = len(unique_labels)-1 - len(neurons_found_labels)
+    neurons_found_labels = np.unique(
+        [i[1] for i in map_labels_existing] + [i[1] for i in map_fused_neurons]
+    )
+    unique_labels = np.unique(labels)
+    neurons_not_found = len(unique_labels) - 1 - len(neurons_found_labels)
     # artefacts found
     artefacts_found = len(new_labels)
     if len(map_labels_existing) > 0:
@@ -121,11 +123,11 @@ def evaluate_model_performance(labels, model_labels, do_print=True,visualize=Fal
 
     # calculate the mean false positive ratio of each artefact
     if len(new_labels) > 0:
-         mean_ratio_false_pixel_artefact= np.mean([i[1] for i in new_labels])
+        mean_ratio_false_pixel_artefact = np.mean([i[1] for i in new_labels])
     else:
-         mean_ratio_false_pixel_artefact= np.nan
+        mean_ratio_false_pixel_artefact = np.nan
     if do_print:
-        print("Neurons found: ", neurons_found) 
+        print("Neurons found: ", neurons_found)
         print("Neurons fused: ", neurons_fused)
         print("Neurons not found: ", neurons_not_found)
         print("Artefacts found: ", artefacts_found)
@@ -146,26 +148,42 @@ def evaluate_model_performance(labels, model_labels, do_print=True,visualize=Fal
             "Mean ratio of false pixel in artefacts: ", mean_ratio_false_pixel_artefact
         )
         if visualize:
-            viewer=napari.Viewer()
+            viewer = napari.Viewer()
             viewer.add_labels(labels, name="ground truth")
             viewer.add_labels(model_labels, name="model's labels")
-            found_model=np.where(np.isin(model_labels,[i[0] for i in map_labels_existing]),model_labels,0)
+            found_model = np.where(
+                np.isin(model_labels, [i[0] for i in map_labels_existing]),
+                model_labels,
+                0,
+            )
             viewer.add_labels(found_model, name="model's labels found")
-            found_label=np.where(np.isin(labels,[i[1] for i in map_labels_existing]),labels,0)
+            found_label = np.where(
+                np.isin(labels, [i[1] for i in map_labels_existing]), labels, 0
+            )
             viewer.add_labels(found_label, name="ground truth found")
-            neurones_not_found_labels=np.where(np.isin(unique_labels,neurons_found_labels)==False,unique_labels,0)
-            neurones_not_found_labels=neurones_not_found_labels[neurones_not_found_labels!=0]
-            not_found=np.where(np.isin(labels,neurones_not_found_labels),labels,0)
+            neurones_not_found_labels = np.where(
+                np.isin(unique_labels, neurons_found_labels) == False, unique_labels, 0
+            )
+            neurones_not_found_labels = neurones_not_found_labels[
+                neurones_not_found_labels != 0
+            ]
+            not_found = np.where(np.isin(labels, neurones_not_found_labels), labels, 0)
             viewer.add_labels(not_found, name="ground truth not found")
-            artefacts_found=np.where(np.isin(model_labels,[i[0] for i in new_labels]),model_labels,0)
+            artefacts_found = np.where(
+                np.isin(model_labels, [i[0] for i in new_labels]), model_labels, 0
+            )
             viewer.add_labels(artefacts_found, name="model's labels artefacts")
-            fused_model=np.where(np.isin(model_labels,[i[0] for i in map_fused_neurons]),model_labels,0)
+            fused_model = np.where(
+                np.isin(model_labels, [i[0] for i in map_fused_neurons]),
+                model_labels,
+                0,
+            )
             viewer.add_labels(fused_model, name="model's labels fused")
-            fused_label=np.where(np.isin(labels,[i[1] for i in map_fused_neurons]),labels,0)
+            fused_label = np.where(
+                np.isin(labels, [i[1] for i in map_fused_neurons]), labels, 0
+            )
             viewer.add_labels(fused_label, name="ground truth fused")
             napari.run()
-
-
 
     return (
         neurons_found,
@@ -181,27 +199,15 @@ def evaluate_model_performance(labels, model_labels, do_print=True,visualize=Fal
 
 
 if __name__ == "__main__":
-    #Example of how to use the functions in this module.
-    a = np.array([[0, 0, 0, 0],
-                  [0, 1, 1, 0],
-                  [0, 1, 1, 0],
-                  [0, 0, 0, 0]])
+    # Example of how to use the functions in this module.
+    a = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]])
 
-    b = np.array([[5, 5, 0, 0], 
-                  [5, 5, 2, 0], 
-                  [0, 2, 2, 0], 
-                  [0, 0, 2, 0]])
+    b = np.array([[5, 5, 0, 0], [5, 5, 2, 0], [0, 2, 2, 0], [0, 0, 2, 0]])
     evaluate_model_performance(a, b)
 
-    c = np.array([[2, 2, 0, 0],
-                  [2, 2, 1, 0],
-                  [0, 1, 1, 0],
-                  [0, 0, 0, 0]])
+    c = np.array([[2, 2, 0, 0], [2, 2, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]])
 
-    d = np.array([[4, 0, 4, 0], 
-                  [4, 4, 4, 0], 
-                  [0, 4, 4, 0], 
-                  [0, 0, 4, 0]])
+    d = np.array([[4, 0, 4, 0], [4, 4, 4, 0], [0, 4, 4, 0], [0, 0, 4, 0]])
 
     evaluate_model_performance(c, d)
     """
@@ -210,4 +216,3 @@ if __name__ == "__main__":
     labels_model=imread("dataset/visual_tif/artefact_neurones/basic_model.tif")
     evaluate_model_performance(labels, labels_model,visualize=True)
     """
-    

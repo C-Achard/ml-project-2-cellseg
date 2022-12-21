@@ -5,11 +5,13 @@ from tifffile import imread
 import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
+
 sys.path.append(str(Path(__file__) / "../../"))
 from config import InferenceWorkerConfig
 from example import Inference
 from utils import dice_metric, normalize
 from napari.viewer import Viewer
+
 """
 Previous code by Cyril Achard and Maxime Vidal
 Adapted by Cyril
@@ -89,5 +91,3 @@ if __name__ == "__main__":
     # - test much longer training
     # - test LR tuning
     # - test GradScaler
-
-

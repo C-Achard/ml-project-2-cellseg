@@ -21,6 +21,7 @@ New code by Yves Paychère
 Fixes labels and allows to auto-detect artifacts and neurons based on a simple intenstiy threshold
 """
 
+
 def relabel_non_unique_i(label, save_path, go_fast=False):
     """relabel the image labelled with different label for each neuron and save it in the save_path location
     Parameters
@@ -89,7 +90,7 @@ def ask_labels(unique_artefact):
         "Which labels do you want to add (0 to skip) ? (separated by a comma):"
     )
     i_labels_to_add_tmp = [int(i) for i in i_labels_to_add_tmp.split(",")]
-    
+
     if i_labels_to_add_tmp == [0]:
         print("no label added")
         returns = [[]]
@@ -157,7 +158,12 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
     print("detection of artefact (in progress)")
     image = imread(image_path)
     artefact = make_artefact_labels.make_artefact_labels(
-        image, imread(label_path), do_multi_label=True, threshold_artefact_brightness_percent= 30, threshold_artefact_size_percent= 0, contrast_power= 30,
+        image,
+        imread(label_path),
+        do_multi_label=True,
+        threshold_artefact_brightness_percent=30,
+        threshold_artefact_size_percent=0,
+        contrast_power=30,
     )
     print("detection of artefact (done)")
     # ask the user if the artefact are not neurons
@@ -170,7 +176,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         t.start()
         artefact_copy = np.where(np.isin(artefact, i_labels_to_add), 0, artefact)
         viewer = napari.view_image(image)
-        viewer.add_labels(artefact_copy,name="potential neurons")
+        viewer.add_labels(artefact_copy, name="potential neurons")
         napari.run()
         t.join()
         i_labels_to_add_tmp = returns[0]
@@ -181,7 +187,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         artefact_copy = np.where(np.isin(artefact, i_labels_to_add_tmp), artefact, 0)
         print("these labels will be added")
         viewer = napari.view_image(image)
-        viewer.add_labels(artefact_copy,name="labels added")
+        viewer.add_labels(artefact_copy, name="labels added")
         napari.run()
         revert = input("Do you want to revert? (y/n)")
         if revert != "y":
@@ -291,13 +297,19 @@ def relabel_non_unique_i_folder(folder_path, end_of_new_name="relabeled"):
 if __name__ == "__main__":
 
     repo_path = Path(__file__).resolve().parents[1]
-    file_path = str(Path(
-        # repo_path / "dataset/visual_tif/labels/images.tif"
-        repo_path / "dataset/somatomotor/labels/c5labels.tif"
-    ))
-    image_path = str(Path(
-        # repo_path, "dataset/visual_tif/volumes/images.tif"
-        repo_path, "dataset/somatomotor/volumes/c5images.tif"
-    ))
+    file_path = str(
+        Path(
+            # repo_path / "dataset/visual_tif/labels/images.tif"
+            repo_path
+            / "dataset/somatomotor/labels/c5labels.tif"
+        )
+    )
+    image_path = str(
+        Path(
+            # repo_path, "dataset/visual_tif/volumes/images.tif"
+            repo_path,
+            "dataset/somatomotor/volumes/c5images.tif",
+        )
+    )
 
     relabel(image_path, file_path, check_for_unicity=True, go_fast=False)

@@ -50,7 +50,7 @@ from utils import (
 
 from os import environ
 
-environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8" # for deterministic training
+environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # for deterministic training
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -147,9 +147,9 @@ class Trainer:
 
         def prepare_validations(val):
             """Fills the gap due to val_interval with blank"""
-            return fill_list_in_between(
-                val, self.val_interval - 1, ""
-            )[: len(size_column)]
+            return fill_list_in_between(val, self.val_interval - 1, "")[
+                : len(size_column)
+            ]
 
         if len(self.confusion) == 1:
             confusion = self.confusion[0]
@@ -164,13 +164,14 @@ class Trainer:
             fall_out = confusion[:, 2]
             miss = confusion[:, 3]
 
-
         self.df = pd.DataFrame(
             {
                 "epoch": size_column,
                 "mean loss": self.loss_values,
                 "mean_validation": prepare_validations(self.validation_values),
-                "mean_validation_loss": prepare_validations(self.validation_loss_values),
+                "mean_validation_loss": prepare_validations(
+                    self.validation_loss_values
+                ),
                 "mean sensitivity": prepare_validations(sensi),
                 "mean specificity": prepare_validations(spec),
                 "mean fall out": prepare_validations(fall_out),
@@ -429,7 +430,7 @@ class Trainer:
             include_background=False,
             metric_name=["sensitivity", "specificity", "fall out", "miss rate"],
             reduction="mean",
-            get_not_nans=False
+            get_not_nans=False,
         )
 
         best_metric = -1
@@ -697,13 +698,14 @@ class Trainer:
                         confusion_matrix(y_pred=post_outputs, y=post_labels)
 
                     metric = dice_metric.aggregate().detach().item()
-                    confusion_values = confusion_matrix.aggregate() # .detach().item()
+                    confusion_values = confusion_matrix.aggregate()  # .detach().item()
                     val_epoch_loss /= step
                     val_epoch_loss_values.append(val_epoch_loss)
                     self.validation_loss_values.append(val_epoch_loss)
                     self.validation_values.append(metric)
-                    self.confusion.append([res.detach().item() for res in confusion_values])
-
+                    self.confusion.append(
+                        [res.detach().item() for res in confusion_values]
+                    )
 
                     if self.config.use_val_loss_for_validation:
                         metric += val_epoch_loss
@@ -811,7 +813,7 @@ if __name__ == "__main__":
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results/results_DiceCE_axons_no_scaler" # "results_multichannel"  # "results_one_channel"
+    save_folder = "results/results_DiceCE_axons_no_scaler"  # "results_multichannel"  # "results_one_channel"
     config.results_path = str(repo_path / save_folder)
     (repo_path / save_folder).mkdir(exist_ok=True)
 
