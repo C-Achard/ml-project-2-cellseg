@@ -67,8 +67,10 @@ def make_labels(
     threshold_size=30,
     label_value=1,
     do_multi_label=True,
+    use_watershed=True,
+    augment_contrast_factor=2,
 ):
-    """Detect nucleus. using a binary watershed algorithm.
+    """Detect nucleus. using a binary watershed algorithm and otsu thresholding.
     Parameters
     ----------
     path_image : str
@@ -81,6 +83,10 @@ def make_labels(
         Value to use for the label image.
     do_multi_label : bool, optional
         If True, each different nucleus will be labelled as a different value.
+    use_watershed : bool, optional
+        If True, use watershed algorithm to detect nucleus.
+    augment_contrast_factor : int, optional
+        Factor to augment the contrast of the image.
     Returns
     -------
     ndarray
@@ -93,7 +99,13 @@ def make_labels(
     threshold_brightness = threshold_otsu(image) * threshold_factor
     image_contrasted = np.where(image > threshold_brightness, image, 0)
 
-    labels = ndimage.label(image_contrasted)[0]
+    if use_watershed:
+        image_contrasted= (image_contrasted - np.min(image_contrasted)) / (np.max(image_contrasted) - np.min(image_contrasted))
+        image_contrasted = image_contrasted * augment_contrast_factor
+        image_contrasted = np.where(image_contrasted > 1, 1, image_contrasted)
+        labels = binary_watershed(image_contrasted, thres_small=threshold_size)
+    else:
+        labels = ndimage.label(image_contrasted)[0]
 
     labels = select_artefacts_by_size(labels, min_size=threshold_size, is_labeled=True)
 
