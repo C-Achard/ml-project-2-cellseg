@@ -9,7 +9,7 @@ import sys
 
 sys.path.append(str(Path(__file__) / "../../"))
 from post_processing import binary_watershed
-import make_artefact_labels as make_artefact_labels
+import label.make_artefact_labels as make_artefact_labels
 import time
 import warnings
 from napari.qt.threading import thread_worker
@@ -136,8 +136,16 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
     """relabel the image labelled with different label for each neuron and save it in the save_path location
     Parameters
     ----------
+    image_path : str
+        the path to the image
     label_path : str
         the path to the label image
+    go_fast : bool, optional
+        if True, the relabeling will be faster but the labels can more frequently be merged, by default False
+    check_for_unicity : bool, optional
+        if True, the relabeling will check if the labels are unique, by default True
+    delay : float, optional
+        the delay between each image for the visualization, by default 0.3
     """
     global returns
 
@@ -155,7 +163,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         visualize_map(map_labels_existing, label_path, new_label_path, delay=delay)
         label_path = new_label_path
     # detect artefact
-    print("detection of artefact (in progress)")
+    print("detection of potential neurons (in progress)")
     image = imread(image_path)
     artefact = make_artefact_labels.make_artefact_labels(
         image,
@@ -165,7 +173,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         threshold_artefact_size_percent=0,
         contrast_power=30,
     )
-    print("detection of artefact (done)")
+    print("detection of potential neurons (done)")
     # ask the user if the artefact are not neurons
     i_labels_to_add = []
     loop = True
@@ -177,6 +185,7 @@ def relabel(image_path, label_path, go_fast=False, check_for_unicity=True, delay
         artefact_copy = np.where(np.isin(artefact, i_labels_to_add), 0, artefact)
         viewer = napari.view_image(image)
         viewer.add_labels(artefact_copy, name="potential neurons")
+        viewer.add_labels(imread(label_path), name="labels")
         napari.run()
         t.join()
         i_labels_to_add_tmp = returns[0]
@@ -210,8 +219,12 @@ def modify_viewer(old_label, new_label, args):
     """modify the viewer to show the relabeling
     Parameters
     ----------
-    map_labels_existing : list
-        the list of the relabeling
+    old_label : napari.layers.Labels
+        the layer of the old label
+    new_label : napari.layers.Labels
+        the layer of the new label
+    args : list
+        the first element is the old label and the second element is the new label
     """
     if args == "hide new label":
         new_label.visible = False
@@ -219,7 +232,8 @@ def modify_viewer(old_label, new_label, args):
         new_label.visible = True
     else:
         old_label.selected_label = args[0]
-        new_label.selected_label = args[1]
+        if not np.isnan(args[1]):
+            new_label.selected_label = args[1]
 
 
 @thread_worker
@@ -228,12 +242,17 @@ def to_show(map_labels_existing, delay=0.5):
     Parameters
     ----------
     map_labels_existing : list
-        the list of the relabeling
+        the list of the of the map between the old label and the new label
+    delay : float, optional
+        the delay between each image for the visualization, by default 0.3
     """
     time.sleep(2)
     for i in map_labels_existing:
         yield "hide new label"
-        yield [i[0], i[1][0]]
+        if len(i[1]):
+            yield [i[0], i[1][0]]
+        else:
+            yield [i[0], np.nan]
         time.sleep(delay)
         yield "show new label"
         for j in i[1]:
@@ -261,10 +280,10 @@ def visualize_map(map_labels_existing, label_path, relabel_path, delay=0.5):
 
     viewer = napari.Viewer(ndisplay=3)
 
-    old_label = viewer.add_labels(label, num_colors=2)
-    new_label = viewer.add_labels(relabel, num_colors=2)
-    old_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0]])
-    new_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 1.0]])
+    old_label = viewer.add_labels(label, num_colors=3)
+    new_label = viewer.add_labels(relabel, num_colors=3)
+    old_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0],[1.0, 1.0, 1.0, 1.0]])
+    new_label.colormap.colors = np.array([[0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 1.0],[1.0, 0.0, 0.0, 1.0]])
 
     # viewer.dims.ndisplay = 3
     viewer.camera.angles = (180, 3, 50)
