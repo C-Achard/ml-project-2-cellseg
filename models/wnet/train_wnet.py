@@ -156,18 +156,18 @@ def train():
 
         ncuts_losses.append(epoch_ncuts_loss / len(dataloader))
         rec_losses.append(epoch_rec_loss / len(dataloader))
-        print(
-            "Ncuts loss: ",
-            ncuts_losses[-1],
-            ", difference: ",
-            ncuts_losses[-1] - ncuts_losses[-2],
-        )
-        print(
-            "Reconstruction loss: ",
-            rec_losses[-1],
-            ", difference: ",
-            rec_losses[-1] - rec_losses[-2],
-        )
+        print("Ncuts loss: ", ncuts_losses[-1])
+        if epoch > 0:
+            print(
+                "Ncuts loss difference: ",
+                ncuts_losses[-1] - ncuts_losses[-2],
+            )
+        print("Reconstruction loss: ", rec_losses[-1])
+        if epoch > 0:
+            print(
+                "Reconstruction loss difference: ",
+                rec_losses[-1] - rec_losses[-2],
+            )
 
         # Update the learning rate
         schedulerE.step(epoch_ncuts_loss)

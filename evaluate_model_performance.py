@@ -28,26 +28,31 @@ def map_labels(labels, model_labels):
         if i == 0:
             continue
         indexes = labels[model_labels == i]
-        # find the most common labels in the indexes
+        # find the most common labels in the label i of the model
         unique, counts = np.unique(indexes, return_counts=True)
         tmp_map = []
         total_pixel_found = 0
         for ii in range(len(unique)):
             true_positive_ratio_model = counts[ii] / np.sum(counts)
+            #if >50% of the pixels of the label i of the model correspond to the background it is considered as an artifact, that should not have been found
             if unique[ii] == 0:
                 if true_positive_ratio_model > 0.5:
+                    #-> artifact found
                     new_labels.append([i, true_positive_ratio_model])
             else:
+                #if >50% of the pixels of the label unique[ii] of the true label map to the same label i of the model,
+                #the label i is considered either as a fused neurons, if it the case for multiple unique[ii] or as neurone found
                 ratio_pixel_found = counts[ii] / np.sum(labels == unique[ii])
-                # print(i,unique[ii],ratio_pixel_found)
                 if ratio_pixel_found > 0.5:
                     total_pixel_found += np.sum(counts[ii])
                     tmp_map.append(
                         [i, unique[ii], ratio_pixel_found, true_positive_ratio_model]
                     )
         if len(tmp_map) == 1:
+            #map to only one true neuron -> found neuron
             map_labels_existing.append(tmp_map[0])
         elif len(tmp_map) > 1:
+            #map to multiple true neurons -> fused neuron
             for ii in range(len(tmp_map)):
                 tmp_map[ii][3] = total_pixel_found / np.sum(counts)
             map_fused_neurons += tmp_map

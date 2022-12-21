@@ -40,4 +40,9 @@ You can use `train_multichannel.py` to re-train models to attempt to reproduce r
 ## Inference and evaluation
 Use `infer_and_evaluate.py` to perform inference on validation data and evaluate the results. The weights are available in the `weights_results` folder on the Drive. The `dataset_clean` folder is also needed for inference.
 
+## Unsupervised WNet model
+The unsupervised WNet model is in the folder `models/wnet`. To train the model you can use `train_wnet.py` by either executing it or calling the method `train` from a notebook. 
+To perform inference you can use the `PredictWNet` class from `predict.py` in a notebook. The weights of the model are available in the folder on the Drive. Use `config.py` to change the parameters of the model. For the time being, please don't use the CRF post-processing as it is doesn't work due to an implementation error from the library used.
+
+
 
