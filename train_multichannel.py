@@ -770,7 +770,7 @@ def initialize_config():
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
     config.sampling = True
-    config.do_augmentation = False # disabled to ensure there were no issues with it
+    config.do_augmentation = False  # disabled to ensure there were no issues with it
     config.num_samples = 15
     config.max_epochs = 100
 
@@ -819,8 +819,7 @@ if __name__ == "__main__":
     # PATHS
     config.train_volume_directory = str(
         repo_path
-        /
-         "dataset_clean/somatomotor/volumes" # USE FOR : monochannel
+        / "dataset_clean/somatomotor/volumes"  # USE FOR : monochannel
         # "dataset_clean/somatomotor/augmented_volumes"  # USE FOR : monochannel_aug
         #  "dataset_clean/axons/training/custom-training/volumes" # USE FOR : multichannel
         # "dataset_clean/axons/training/custom-training/volumes_augmented" # USE FOR : multichannel_aug
@@ -847,7 +846,7 @@ if __name__ == "__main__":
     config.model_info.out_channels = 1  # USE : 1 for monochannel
     # config.model_info.out_channels = 3  # USE : 3 for multichannel
 
-    save_folder = "results/TESTTEST-training_output"
+    save_folder = "results/training_output"  # change if needed
     ###################################################
     ###################################################
     ###################################################

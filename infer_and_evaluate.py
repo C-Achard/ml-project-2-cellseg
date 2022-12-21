@@ -34,8 +34,8 @@ def infer_and_evaluate(
     out_channels_number=1,
     path_to_folder_weight="new_final/results_DiceCE_monochannel_aug",
     use_best_metric=True,
-    test_image_path="dataset_clean/visual_tif/volumes/0-visual.tif",
-    ground_truth_path="dataset_clean/visual_tif/labels/testing_im_new_label.tif",
+    test_image_path="dataset_clean/VALIDATION/validation_image.tif",  # DO NOT CHANGE
+    ground_truth_path="dataset_clean/VALIDATION/validation_labels.tif",
     run_evaluation=True,
 ):
     """
@@ -56,7 +56,7 @@ def infer_and_evaluate(
 
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.INFO)
-    repo_path = Path(__file__).resolve().parents[1]
+    repo_path = Path(__file__).resolve().parents[0]
     print(f"REPO PATH : {repo_path}")
 
     pred_conf = InferenceWorkerConfig()
@@ -107,7 +107,7 @@ def infer_and_evaluate(
             argmax=True, to_onehot=pred_conf.model_info.out_channels
         )(result)
         channel = 1
-        if path_to_folder_weight == "new_final_results/results_DiceCE_axons":
+        if path_to_folder_weight == "new_final_results/results_DiceCE_multichannel":
             channel = 2  # this is because on channel 1 results are bugged.
             # But channels are very similar so we are using channel 2
             # We know it's an unfair approximation but the model is actually good and we don't want an accuracy of 0 on a good model due to a bug
@@ -171,14 +171,16 @@ if __name__ == "__main__":
     # DO NOT CHANGE THE IMAGE USED TO REPRODUCE THE RESULTS
     # use data in dataset_clean/VALIDATION/
 
+    # simply uncomment the path you want to use (and comment the others)
+
     infer_and_evaluate(
-        out_channels_number=3,
-        path_to_folder_weight="weights_results/results_DiceCE_multichannel",  # use 3 channels
-        # path_to_folder_weight="weights_results/results_DiceCE_multichannel_aug", # use 3 channels
+        out_channels_number=1,  # CHANGE THIS TO 3 FOR MULTICHANNEL
+        path_to_folder_weight="weights_results/results_DiceCE_monochannel",  # use 1 channel
         # path_to_folder_weight="weights_results/results_DiceCE_monochannel_aug", # use 1 channel
-        # path_to_folder_weight="weights_results/results_DiceCE_monochannel", # use 1 channel
-        use_best_metric=False,
-        test_image_path="dataset_clean/VALIDATION/validation_image.tif",  # DO NOT CHANGE
-        ground_truth_path="dataset_clean/VALIDATION/validation_labels.tif",  # DO NOT CHANGE
+        # path_to_folder_weight="weights_results/results_DiceCE_multichannel",  # use 3 channels
+        # path_to_folder_weight="weights_results/results_DiceCE_multichannel_aug", # use 3 channels
+        use_best_metric=False,  # set to True for checkpoint
         run_evaluation=True,
     )
+# test_image_path="dataset_clean/VALIDATION/validation_image.tif",  # DO NOT CHANGE
+# ground_truth_path="dataset_clean/VALIDATION/validation_labels.tif",  # DO NOT CHANGE
