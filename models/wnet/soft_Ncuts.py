@@ -13,7 +13,17 @@ import numpy as np
 from scipy.stats import norm
 
 __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
-__credits__ = ["Yves Paychère", "Colin Hofmann", "Cyril Achard", "Xide Xia", "Brian Kulis", "Jianbo Shi", "Jitendra Malik", "Frank Odom"]
+__credits__ = [
+    "Yves Paychère",
+    "Colin Hofmann",
+    "Cyril Achard",
+    "Xide Xia",
+    "Brian Kulis",
+    "Jianbo Shi",
+    "Jitendra Malik",
+    "Frank Odom",
+]
+
 
 class SoftNCutsLoss(nn.Module):
     """Implementation of a 3D Soft N-Cuts loss based on https://arxiv.org/abs/1711.08506 and https://ieeexplore.ieee.org/document/868688.
@@ -24,7 +34,6 @@ class SoftNCutsLoss(nn.Module):
         o_x (scalar): scale of the gaussian kernel of pixels spacial distance.
         radius (scalar): radius of pixels for which we compute the weights
     """
-
 
     def __init__(self, data_shape, device, o_i, o_x, radius=None):
         super(SoftNCutsLoss, self).__init__()
@@ -44,7 +53,7 @@ class SoftNCutsLoss(nn.Module):
                 self.D,
             )
 
-        #self.distances, self.indexes = self.get_distances()
+        # self.distances, self.indexes = self.get_distances()
 
         """
  
@@ -131,23 +140,32 @@ class SoftNCutsLoss(nn.Module):
         loss = 0
 
         kernel = self.gaussian_kernel(self.radius, self.o_x).to(self.device)
-        
+
         for k in range(K):
             # Compute the average pixel value for this class, and the difference from each pixel
             class_probs = labels[:, k].unsqueeze(1)
-            class_mean = torch.mean(inputs * class_probs, dim=(2, 3, 4), keepdim=True) / \
-                torch.add(torch.mean(class_probs, dim=(2, 3, 4), keepdim=True), 1e-5)
+            class_mean = torch.mean(
+                inputs * class_probs, dim=(2, 3, 4), keepdim=True
+            ) / torch.add(torch.mean(class_probs, dim=(2, 3, 4), keepdim=True), 1e-5)
             diff = (inputs - class_mean).pow(2).sum(dim=1).unsqueeze(1)
 
             # Weight the loss by the difference from the class average.
-            weights = torch.exp(diff.pow(2).mul(-1 / self.o_i ** 2))
+            weights = torch.exp(diff.pow(2).mul(-1 / self.o_i**2))
 
-            numerator = torch.sum(class_probs * F.conv3d(class_probs * weights, kernel, padding=self.radius), dim=(1, 2, 3, 4))
-            denominator = torch.sum(class_probs * F.conv3d(weights, kernel, padding=self.radius), dim=(1, 2, 3, 4))
-            loss += nn.L1Loss()(numerator / torch.add(denominator, 1e-6), torch.zeros_like(numerator))
+            numerator = torch.sum(
+                class_probs
+                * F.conv3d(class_probs * weights, kernel, padding=self.radius),
+                dim=(1, 2, 3, 4),
+            )
+            denominator = torch.sum(
+                class_probs * F.conv3d(weights, kernel, padding=self.radius),
+                dim=(1, 2, 3, 4),
+            )
+            loss += nn.L1Loss()(
+                numerator / torch.add(denominator, 1e-6), torch.zeros_like(numerator)
+            )
 
         return K - loss
-
 
         """
         for k in range(K):
@@ -188,16 +206,21 @@ class SoftNCutsLoss(nn.Module):
 
     def gaussian_kernel(self, radius, sigma):
         """Computes the Gaussian kernel.
-        
+
         Args:
             radius (int): The radius of the kernel.
             sigma (float): The standard deviation of the Gaussian distribution.
-            
+
         Returns:
             The Gaussian kernel of shape (1, 1, 2*radius+1, 2*radius+1, 2*radius+1).
         """
-        x_2 = np.linspace(-radius, radius, 2*radius+1) ** 2
-        dist = np.sqrt(x_2.reshape(-1, 1, 1) + x_2.reshape(1, -1, 1) + x_2.reshape(1, 1, -1)) / sigma
+        x_2 = np.linspace(-radius, radius, 2 * radius + 1) ** 2
+        dist = (
+            np.sqrt(
+                x_2.reshape(-1, 1, 1) + x_2.reshape(1, -1, 1) + x_2.reshape(1, 1, -1)
+            )
+            / sigma
+        )
         kernel = norm.pdf(dist) / norm.pdf(0)
         kernel = torch.from_numpy(kernel.astype(np.float32))
         kernel = kernel.view((1, 1, kernel.shape[0], kernel.shape[1], kernel.shape[2]))
@@ -206,7 +229,7 @@ class SoftNCutsLoss(nn.Module):
 
     def get_distances(self):
         """Precompute the spatial distance of the pixels for the weights calculation, to avoid recomputing it at each iteration.
-        
+
         Returns:
             distances (dict): for each pixel index, we get the distances to the pixels in a radius around it.
         """
@@ -320,4 +343,3 @@ class SoftNCutsLoss(nn.Module):
 
         W = torch.mul(W_I, unsqueezed_W_X)  # (N, C, H*W*D, H*W*D)
         return W
-        

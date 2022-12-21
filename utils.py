@@ -118,6 +118,7 @@ def create_dataset_dict(volume_directory, label_directory):
 
     return data_dicts
 
+
 def create_dataset_dict_no_labs(volume_directory):
     """Creates unsupervised data dictionary for MONAI transforms and training."""
     images_filepaths = sorted(glob.glob(str(Path(volume_directory) / "*.tif")))
@@ -129,10 +130,7 @@ def create_dataset_dict_no_labs(volume_directory):
         logger.info(Path(file).stem)
     logger.info("*" * 10)
 
-    data_dicts = [
-        {"image": image_name}
-        for image_name in images_filepaths
-    ]
+    data_dicts = [{"image": image_name} for image_name in images_filepaths]
 
     return data_dicts
 
