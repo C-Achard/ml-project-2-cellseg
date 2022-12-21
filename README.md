@@ -42,7 +42,7 @@ Use `infer_and_evaluate.py` to perform inference on validation data and evaluate
 
 ## Unsupervised WNet model
 The unsupervised WNet model is in the folder `models/wnet`. To train the model you can use `train_wnet.py` by either executing it or calling the method `train` from a notebook. 
-To perform inference you can use the `PredictWNet` class from `predict.py` in a notebook. The weights of the model are available in the folder on the Drive. Use `config.py` to change the parameters of the model. For the time being, please don't use the CRF post-processing as it is doesn't work due to an implementation error from the library used.
+To perform inference you can use the `PredictWNet` class from `predict.py` in a notebook. `predict.ipynb` is such a notebook and can also be used to visualize the results in napari. The weights of the model are available in the folder on the Drive. Use `config.py` to change the parameters of the model. For the time being, please don't use the CRF post-processing as it is doesn't work due to an implementation error from the library used.
 
 
 
