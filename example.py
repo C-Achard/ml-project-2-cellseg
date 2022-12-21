@@ -488,7 +488,9 @@ class Inference:
             logger = logging.getLogger(__name__)
             logging.basicConfig(level=logging.DEBUG)
 
-        self.config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         logger.info(f"Using {self.config.device} device")
         logger.info("Using torch :")
         logger.info(torch.__version__)

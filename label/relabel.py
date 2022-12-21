@@ -302,7 +302,6 @@ if __name__ == "__main__":
             repo_path
             / "dataset/visual_tif/labels/testing_im.tif"
             # repo_path / "dataset/somatomotor/labels/c5labels.tif"
-
         )
     )
     image_path = str(
@@ -321,6 +320,5 @@ if __name__ == "__main__":
     #     [str(file) for file in Path(volume_directory / "labels").glob("*.tif")]
     # )
     # for image_path, file_path in zip(images_filepaths, labels_filepath):
-
 
     relabel(image_path, file_path, check_for_unicity=True, go_fast=False)
