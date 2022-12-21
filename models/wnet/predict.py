@@ -8,7 +8,7 @@ import numpy as np
 
 from model import WNet
 from train_wnet import train
-from crf import crf, crf_batch
+
 
 __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 
@@ -57,6 +57,7 @@ class PredictWNet:
             output = output.cpu().numpy()
 
         if self.crf:
+            from crf import crf, crf_batch
             output = crf(
                 image,
                 output,
@@ -85,6 +86,7 @@ class PredictWNet:
             output = output.cpu().numpy()
             
         if self.crf:
+            from crf import crf, crf_batch
             output = crf_batch(
                 images.cpu().numpy(),
                 output,

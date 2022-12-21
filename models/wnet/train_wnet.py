@@ -29,7 +29,6 @@ from monai.transforms import (
 )
 
 from model import WNet
-import crf as crf
 from config import Config
 from soft_Ncuts import SoftNCutsLoss
 
