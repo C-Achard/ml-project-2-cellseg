@@ -12,6 +12,7 @@ from monai.data import (
 )
 from monai.metrics import DiceMetric
 from monai.transforms import (
+    Activations,
     EnsureChannelFirstd,
     EnsureTyped,
     LoadImaged,
@@ -26,48 +27,19 @@ from monai.transforms import (
 from monai.utils import set_determinism
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from utils import get_loss, get_model, create_dataset_dict, get_padding_dim
+from utils import get_loss, create_dataset_dict, get_padding_dim
 from tifffile import imwrite
 
-from config import InferenceWorkerConfig
+from config import InferenceWorkerConfig, TrainerConfig
 from predict import Inference
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 
-
-class TrainerConfig:
-    def __init__(self, **kwargs):
-        self.model_name = "SegResNet"
-        self.weights_path = None
-        self.validation_percent = None  # 0.8
-        self.train_volume_directory = ()
-        self.train_label_directory = ()
-        self.validation_volume_directory = ()
-        self.validation_label_directory = ()
-
-        self.max_epochs = 50
-        self.learning_rate = 3e-4
-        self.val_interval = 1
-        self.batch_size = 16
-        self.results_path = ()
-        self.weights_dir = ()
-        self.sampling = True
-        self.num_samples = 160
-        self.sample_size = [64, 64, 64]
-        self.do_augmentation = True
-        self.deterministic = True
-        self.grad_norm_clip = 1.0
-        self.weight_decay = 0.00001
-        self.compute_instance_boundaries = (
-            False  # Change class loss weights in utils.get_loss TODO: choose in config
-        )
-        self.loss_function_name = "Dice loss"  # DiceCELoss
-        self.plot_training_inputs = False
-
-        for k, v in kwargs.items():
-            # this will generate new attributes based on the supplementary arguments
-            setattr(self, k, v)
+"""
+Demo of training/inference by Cyril Achard
+Adapted from previous code by Maxime Vidal and Cyril Achard
+"""
 
 
 class Trainer:
@@ -94,7 +66,7 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Using {self.device} device")
         logger.info(f"Using torch : {torch.__version__}")
-        self.model_class = get_model(self.config.model_name)
+        self.model_class = self.config.model_info.get_model()
         self.weights_path = self.config.weights_path
         self.validation_percent = self.config.validation_percent
         self.max_epochs = self.config.max_epochs
@@ -161,7 +133,7 @@ class Trainer:
             first_volume = LoadImaged(keys=["image"])(self.train_data_dict[0])
             first_volume_shape = first_volume["image"].shape
 
-        if self.config.model_name == "SegResNet":
+        if self.config.model_info.name == "SegResNet":
             if self.sampling:
                 size = self.sample_size
             else:
@@ -460,7 +432,7 @@ class Trainer:
                         best_metric_epoch = epoch + 1
                         logger.info("Saving best metric model")
 
-                        weights_filename = f"{self.config.model_name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
+                        weights_filename = f"{self.config.model_info.name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
 
                         # DataParallel wrappers keep raw model object in .module attribute
                         raw_model = model.module if hasattr(model, "module") else model
@@ -507,15 +479,17 @@ SWIN = "SwinUNetR"
 
 class Inference:
     def __init__(
-        self,
-        config: InferenceWorkerConfig = InferenceWorkerConfig(),
+        self, config: InferenceWorkerConfig = InferenceWorkerConfig(), logger=None
     ):
         self.config = config
         # print(self.config)
         # logger.debug(CONFIG_PATH)
+        if logger is None:
+            logger = logging.getLogger(__name__)
+            logging.basicConfig(level=logging.DEBUG)
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Using {self.device} device")
+        self.config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Using {self.config.device} device")
         logger.info("Using torch :")
         logger.info(torch.__version__)
 
@@ -640,52 +614,6 @@ class Inference:
         self.log("Done")
         return input_image
 
-    def model_output(
-        self,
-        inputs,
-        model,
-        post_process_transforms,
-        post_process=True,
-        aniso_transform=None,
-    ):
-
-        inputs = inputs.to("cpu")
-        # print(f"Input size: {inputs.shape}")
-        model_output = lambda inputs: post_process_transforms(
-            self.config.model_info.get_model().get_output(model, inputs)
-        )
-
-        if self.config.keep_on_cpu:
-            dataset_device = "cpu"
-        else:
-            dataset_device = self.config.device
-
-        window_size = self.config.sliding_window_config.window_size
-        window_overlap = self.config.sliding_window_config.window_overlap
-
-        outputs = sliding_window_inference(
-            inputs,
-            roi_size=window_size,
-            sw_batch_size=1,
-            predictor=model_output,
-            sw_device=self.config.device,
-            device=dataset_device,
-            overlap=window_overlap,
-            progress=True,
-        )
-
-        out = outputs.detach().cpu()
-
-        if aniso_transform is not None:
-            out = aniso_transform(out)
-
-        if post_process:
-            out = np.array(out).astype(np.float32)
-            out = np.squeeze(out)
-            return out
-        else:
-            return out
-
     def save_image(self, name, image, folder: str = None):
         # time = "{:%Y_%m_%d_%H_%M_%S}".format(datetime.now())
 
@@ -720,6 +648,58 @@ class Inference:
         )
         return anisotropic_transform(image[0])
 
+    def model_output(
+        self,
+        inputs,
+        model,
+        post_process_transforms,
+        softmax=False,
+        post_process=True,
+        aniso_transform=None,
+    ):
+
+        inputs = inputs.to("cpu")
+        # print(f"Input size: {inputs.shape}")
+        model_output = lambda inputs: post_process_transforms(
+            self.config.model_info.get_model().get_output(model, inputs)
+        )
+
+        if self.config.keep_on_cpu:
+            dataset_device = "cpu"
+        else:
+            dataset_device = self.device
+
+        window_size = self.config.sliding_window_config.window_size
+        window_overlap = self.config.sliding_window_config.window_overlap
+
+        outputs = sliding_window_inference(
+            inputs,
+            roi_size=window_size,
+            sw_batch_size=1,
+            predictor=model_output,
+            sw_device=self.device,
+            device=dataset_device,
+            overlap=window_overlap,
+            progress=True,
+        )
+
+        out = outputs.detach().cpu()
+
+        # if softmax:
+        #     out = F.softmax(out, dim=1)
+        # else:
+        #     out = F.sigmoid(out)
+
+        if aniso_transform is not None:
+            out = aniso_transform(out)
+
+        if post_process:
+            out = np.array(out).astype(np.float32)
+            out = np.squeeze(out)
+            return out
+        else:
+            return out
+
     def inference(self, image_id: int = 0):
 
         try:
@@ -739,27 +719,43 @@ class Inference:
                         dims,
                         dims,
                     ],
+                    out_channels=self.config.model_info.out_channels,
                 )
             elif model_name == "SwinUNetR":
 
-                out_channels = 1
-                if self.config.compute_instance_boundaries:
-                    out_channels = 3
+                # out_channels = 1
+                # if self.config.compute_instance_boundaries:
+                #     out_channels = 3
                 model = model_class.get_net(
                     img_size=[dims, dims, dims],
                     use_checkpoint=False,
-                    out_channels=out_channels,
+                    out_channels=self.config.model_info.out_channels,
                 )
             else:
-                model = model_class.get_net()
-            model = model.to(self.config.device)
+                model = model_class.get_net(
+                    out_channels=self.config.model_info.out_channels
+                )
+            model = model.to(self.device)
 
             self.log_parameters()
 
-            model.to(self.config.device)
+            model.to(self.device)
 
             if not post_process_config.thresholding.enabled:
                 post_process_transforms = EnsureType()
+            elif (
+                post_process_config.thresholding.enabled
+                and self.config.model_info.out_channels > 1
+            ):
+                self.log("Using argmax and one-hot format")
+                t = post_process_config.thresholding.threshold_value
+                post_process_transforms = Compose(
+                    [
+                        AsDiscrete(argmax=True, to_onehot=3, threshold=t),
+                        # Activations(softmax=True),
+                        # EnsureType()
+                    ]
+                )
             else:
                 t = post_process_config.thresholding.threshold_value
                 post_process_transforms = Compose(
@@ -778,7 +774,7 @@ class Inference:
             model.load_state_dict(
                 torch.load(
                     weights_path,
-                    map_location=self.config.device,
+                    map_location=self.device,
                 )
             )
             self.log("Done")
@@ -790,77 +786,86 @@ class Inference:
 
                 image = input_image.type(torch.FloatTensor)
                 self.log("Saving original image...")
+                logger.debug(f"Image shape : {image.shape}")
                 self.save_image(
                     "original_volume", input_image.numpy(), self.config.results_path
                 )
 
                 self.log("Predicting...")
+
+                use_softmax = self.config.model_info.out_channels > 1
+
                 out = self.model_output(
                     image,
                     model,
                     EnsureType(),
-                    # post_process=True,
-                    # aniso_transform=self.aniso_transform,
+                    softmax=use_softmax,
+                    post_process=True,
+                    aniso_transform=self.aniso_transform,
                 )
+
+                if self.config.compute_instance_boundaries:
+                    out = F.softmax(out, dim=1)
+                    out = np.array(out)  # .astype(np.float32)
+
+                    if self.config.keep_boundary_predictions:
+                        out = out[:, 1:, :, :, :]
+                    else:
+                        out = out[:, 1, :, :, :]
+                    if self.config.post_process_config.thresholding.enabled:
+                        out = (
+                            out
+                            > self.config.post_process_config.thresholding.threshold_value
+                        )
+                    logger.info(f" Output shape: {out.shape}")
+                    out = np.squeeze(out)
+                    logger.info(f" Output shape: {out.shape}")
+                    if self.config.keep_boundary_predictions:
+                        out = np.transpose(out, (0, 3, 2, 1))
+                    else:
+                        out = np.transpose(out, (2, 1, 0))
+                else:
+                    out = np.array(out)
+                    logger.info(
+                        f" Output max {out.max()}, output min {out.min()},"
+                        f" output mean {out.mean()}, output median {np.median(out)}"
+                    )
 
                 self.log("Saving prediction...")
                 self.save_image("prediction", out, "prediction")
-
                 self.log("Done")
-
-                out = post_process_transforms(out)
-                self.log("Saving semantic labels...")
-                file_path = self.save_image(
-                    name=f"Semantic_labels_{image_id}",
-                    image=out.numpy(),
-                    folder="semantic_labels",
-                )
-
-            if self.config.compute_instance_boundaries:
-                out = F.softmax(out, dim=1)
-                out = np.array(out)  # .astype(np.float32)
-                logger.info(
-                    f" Output max {out.max()}, output min {out.min()},"
-                    f" output mean {out.mean()}, output median {np.median(out)}"
-                )
-                logger.info(f" Output shape: {out.shape}")
-                if self.config.keep_boundary_predictions:
-                    out = out[:, 1:, :, :, :]
-                else:
-                    out = out[:, 1, :, :, :]
-                if self.config.post_process_config.threshold.enabled:
-                    out = (
-                        out > self.config.post_process_config.threshold.threshold_value
-                    )
-                logger.info(f" Output shape: {out.shape}")
-                out = np.squeeze(out)
-                logger.info(f" Output shape: {out.shape}")
-                if self.config.keep_boundary_predictions:
-                    out = np.transpose(out, (0, 3, 2, 1))
-                else:
-                    out = np.transpose(out, (2, 1, 0))
-            else:
-                out = np.array(out)
-                logger.info(
-                    f" Output max {out.max()}, output min {out.min()},"
-                    f" output mean {out.mean()}, output median {np.median(out)}"
-                )
 
                 # if self.transforms["thresh"][0]:
                 #     out = out > self.transforms["thresh"][1]
+                # logger.info(f" Output shape: {out.shape}")
+                # out = np.squeeze(out)
+                # logger.info(f" Output shape: {out.shape}")
+                # if self.config.model_info.out_channels >1 :
+                #     out = np.transpose(out, (0, 3, 2, 1))
+                # else:
+                #     out =np.transpose(out, (0, 2, 1))
+                #
+                # if self.config.run_semantic_evaluation:
+                #     from evaluate_semantic import run_evaluation
+                #
+                #     run_evaluation(out)
+
+                model.to("cpu")
+
+                self.log("Saving semantic labels...")
+                out = post_process_transforms(out)
+                logger.info(
+                    f" Output max {out.max()}, output min {out.min()},"
+                    f" output mean {out.mean()}, output median {np.median(out)}"
+                )
                 logger.info(f" Output shape: {out.shape}")
-                out = np.squeeze(out)
-                logger.info(f" Output shape: {out.shape}")
-                out = np.transpose(out, (2, 1, 0))
+                file_path = self.save_image(
+                    name=f"Semantic_labels_{image_id}",
+                    image=np.array(out).astype(np.float32),
+                    folder="semantic_labels",
+                )
 
-            if self.config.run_semantic_evaluation:
-                from evaluate_semantic import run_evaluation
-
-                run_evaluation(out)
-
-            model.to("cpu")
-            return file_path
-
+                return file_path
         except Exception as e:
             raise e
 

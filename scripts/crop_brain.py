@@ -1,9 +1,44 @@
 import napari
 from dask_image.imread import imread
+from tifffile import imwrite
 from skimage import io
 from utils import read_tiff_stack_labels
 import numpy as np
-import os
+from pathlib import Path
+
+"""
+Code by Cyril Achard and Maxime Vidal
+Updated by Cyril
+Made to crop the brain in several smaller images due to large size
+"""
+
+
+def split_image_n(n, image_path):
+    """
+    Split image into n equal parts using dask
+    :param n: number of parts
+    :param image: image to split
+    :return: list of images
+    """
+    image = imread(image_path)
+    print(f"Shape : {image.shape}")
+    image = image[:500, :, :]
+    name = Path(image_path).parents[0] / f"crop.tif"
+    print(f"Saving to {name}")
+    image.compute()
+    imwrite(name, image)
+    # splits = np.array_split(image, n, axis=0)
+    # for i, split in enumerate(splits):
+    #     name = Path(image_path).parents[0] / f"crop_{i}.tif"
+    #     print(f"Saving to {name}")
+    #     imwrite(name, split, bigtiff=True)
+
+
+if __name__ == "__main__":
+    # Load image
+    image_path = "E:/BRAIN_DATA/ExpC_TPH2_whole_brain.tif"
+    split_image_n(10, image_path)
+
 
 # # c5image
 # im = io.imread(
@@ -37,26 +72,26 @@ import os
 # )
 
 # c5image
-im = io.imread(
-    "/home/maximevidal/Documents/cell-segmentation-models/data/validation_volumes/c5images.tif"
-)
-print(im.shape)
-im_crop = im[-64:, :, :]
-io.imsave(
-    "/home/maximevidal/Documents/cell-segmentation-models/data/cropped_volumes/c53.tif",
-    im_crop,
-)
-
-label = read_tiff_stack_labels(
-    "/home/maximevidal/Documents/cell-segmentation-models/data/labels/c5labels.tif"
-)
+# im = io.imread(
+#     "/home/maximevidal/Documents/cell-segmentation-models/data/validation_volumes/c5images.tif"
+# )
+# print(im.shape)
+# im_crop = im[-64:, :, :]
+# io.imsave(
+#     "/home/maximevidal/Documents/cell-segmentation-models/data/cropped_volumes/c53.tif",
+#     im_crop,
+# )
 #
-print(label.shape)
-label_crop = label[-64:, :, :]
-io.imsave(
-    "/home/maximevidal/Documents/cell-segmentation-models/data/cropped_labels/c53_label.tif",
-    label_crop,
-)
+# label = read_tiff_stack_labels(
+#     "/home/maximevidal/Documents/cell-segmentation-models/data/labels/c5labels.tif"
+# )
+# #
+# print(label.shape)
+# label_crop = label[-64:, :, :]
+# io.imsave(
+#     "/home/maximevidal/Documents/cell-segmentation-models/data/cropped_labels/c53_label.tif",
+#     label_crop,
+# )
 
 # im = io.imread("/home/maximevidal/Downloads/braindata/A/ExpA_VIP_ASLM_on.tif")
 # im_coronal = np.transpose(im, (2, 0, 1))

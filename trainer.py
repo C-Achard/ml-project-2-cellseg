@@ -32,47 +32,16 @@ from monai.transforms import (
 from monai.utils import set_determinism
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from utils import get_loss, get_model, create_dataset_dict, get_padding_dim
+from config import TrainerConfig
+from utils import get_loss, create_dataset_dict, get_padding_dim
 
 logger = logging.getLogger(__name__)
 
-
-class TrainerConfig:
-    def __init__(self, **kwargs):
-        self.model_name = "Swin"
-        self.weights_path = None
-        self.validation_percent = None  # 0.8
-        self.train_volume_directory = (
-            "/home/maximevidal/Documents/cell-segmentation-models/data/train_volumes"
-        )
-        self.train_label_directory = "/home/maximevidal/Documents/cell-segmentation-models/data/train_labels_semantic"
-        self.validation_volume_directory = "/home/maximevidal/Documents/cell-segmentation-models/data/validation_volumes"
-        self.validation_label_directory = "/home/maximevidal/Documents/cell-segmentation-models/data/validation_labels_semantic"
-
-        self.max_epochs = 50
-        self.learning_rate = 3e-4
-        self.val_interval = 1
-        self.batch_size = 16
-        self.results_path = (
-            "/home/maximevidal/Documents/cell-segmentation-models/results"
-        )
-        self.weights_dir = (
-            "/home/maximevidal/Documents/cell-segmentation-models/models/saved_weights"
-        )
-        self.sampling = True
-        self.num_samples = 160
-        self.sample_size = [64, 64, 64]
-        self.do_augmentation = True
-        self.deterministic = True
-        self.grad_norm_clip = 1.0
-        self.weight_decay = 0.00001
-        self.compute_instance_boundaries = (
-            False  # Change class loss weights in utils.get_loss TODO: choose in config
-        )
-        self.loss_function_name = "Dice loss"  # DiceCELoss
-        self.plot_training_inputs = False
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+"""
+Original code from Maxime Vidal and Cyril Achard, adapted from MONAI tutorials
+Provided simply for comparison with other files
+Trains a model with the specified parameters in trainer.config
+"""
 
 
 class Trainer:
@@ -99,7 +68,7 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Using {self.device} device")
         logger.info(f"Using torch : {torch.__version__}")
-        self.model_class = get_model(self.config.model_name)
+        self.model_class = self.config.model_info.get_model()
         self.weights_path = self.config.weights_path
         self.validation_percent = self.config.validation_percent
         self.max_epochs = self.config.max_epochs
@@ -166,7 +135,7 @@ class Trainer:
             first_volume = LoadImaged(keys=["image"])(self.train_data_dict[0])
             first_volume_shape = first_volume["image"].shape
 
-        if self.config.model_name == "SegResNet":
+        if self.config.model_info.name == "SegResNet":
             if self.sampling:
                 size = self.sample_size
             else:
@@ -177,7 +146,7 @@ class Trainer:
                 out_channels=1,
                 dropout_prob=0.3,
             )
-        elif self.config.model_name == "Swin":
+        elif self.config.model_info.name == "Swin":
             if self.sampling:
                 size = self.sample_size
             else:
@@ -479,7 +448,7 @@ class Trainer:
                         best_metric_epoch = epoch + 1
                         logger.info("Saving best metric model")
 
-                        weights_filename = f"{self.config.model_name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
+                        weights_filename = f"{self.config.model_info.name}64_onechannel_best_metric.pth"  # f"_epoch_{epoch + 1}
 
                         # DataParallel wrappers keep raw model object in .module attribute
                         raw_model = model.module if hasattr(model, "module") else model

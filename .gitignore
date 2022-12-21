@@ -132,3 +132,6 @@ _
 
 #vscode
 .vscode/
+*.csv
+*.xlsx
+/dataset_clean/
