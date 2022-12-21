@@ -1,5 +1,5 @@
 import numpy as np
-
+import pandas as pd
 import napari
 
 
@@ -126,6 +126,7 @@ def evaluate_model_performance(labels, model_labels, do_print=True, visualize=Fa
         mean_ratio_false_pixel_artefact = np.mean([i[1] for i in new_labels])
     else:
         mean_ratio_false_pixel_artefact = np.nan
+
     if do_print:
         print("Neurons found: ", neurons_found)
         print("Neurons fused: ", neurons_fused)
@@ -198,7 +199,37 @@ def evaluate_model_performance(labels, model_labels, do_print=True, visualize=Fa
     )
 
 
+def save_as_csv(results, path):
+    """
+    Save the results as a csv file
+
+    Parameters
+    ----------
+    results: list
+        The results of the evaluation
+    path: str
+        The path to save the csv file
+    """
+    print(np.array(results).shape)
+    df = pd.DataFrame(
+        [results],
+        columns=[
+            "neurons_found",
+            "neurons_fused",
+            "neurons_not_found",
+            "artefacts_found",
+            "mean_true_positive_ratio_model",
+            "mean_ratio_pixel_found",
+            "mean_ratio_pixel_found_fused",
+            "mean_true_positive_ratio_model_fused",
+            "mean_ratio_false_pixel_artefact",
+        ],
+    )
+    df.to_csv(path, index=False)
+
+
 if __name__ == "__main__":
+    """
     # Example of how to use the functions in this module.
     a = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]])
 
@@ -210,9 +241,14 @@ if __name__ == "__main__":
     d = np.array([[4, 0, 4, 0], [4, 4, 4, 0], [0, 4, 4, 0], [0, 0, 4, 0]])
 
     evaluate_model_performance(c, d)
-    """
+
     from tifffile import imread
     labels=imread("dataset/visual_tif/labels/testing_im_new_label.tif")
     labels_model=imread("dataset/visual_tif/artefact_neurones/basic_model.tif")
     evaluate_model_performance(labels, labels_model,visualize=True)
     """
+    from tifffile import imread
+
+    labels = imread("dataset_clean/visual_tif/labels/testing_im_new_label.tif")
+    labels_model = imread("test/instance_labels.tif")
+    evaluate_model_performance(labels, labels_model, visualize=True)

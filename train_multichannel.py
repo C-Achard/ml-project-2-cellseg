@@ -1,7 +1,6 @@
 import logging
 import warnings
 from functools import partial
-import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 import torch
@@ -393,14 +392,14 @@ class Trainer:
             logger.info("Plotting dataset")
             view = napari.viewer.Viewer()
             for check_data in train_loader:
-                print(check_data.keys())
+                logger.info(check_data.keys())
                 image, label = (check_data["image"], check_data["label"])
 
                 view.add_image(image.numpy())
                 view.add_labels(label.numpy().astype(np.int8))
             napari.run()
             # image, label = (check_data["image"][0][0], check_data["label"][0][0])
-            # print(f"image shape: {image.shape}, label shape: {label.shape}")
+            # logger.info(f"image shape: {image.shape}, label shape: {label.shape}")
             # plt.figure("check", (12, 6))
             # plt.subplot(1, 2, 1)
             # plt.title("image")6
@@ -493,35 +492,35 @@ class Trainer:
                     batch_data["label"].to(self.device),
                 )
 
-                optimizer.zero_grad()
-                logits = self.model_class.get_output(model, inputs)
-                if self.out_channels > 1:
-                    ohe_labels = one_hot(
-                        labels, num_classes=self.config.model_info.out_channels
-                    )
-                else:
-                    ohe_labels = labels
-
-                loss = self.loss_function(  # softmax is done by DiceLoss
-                    logits,
-                    ohe_labels,
-                )
-                loss.backward()
-                optimizer.step()
-                epoch_loss += loss.detach().item()
-
-                # with torch.cuda.amp.autocast():
-                #     if self.out_channels > 1:
-                #         ohe_labels = one_hot(
-                #             labels, num_classes=self.config.model_info.out_channels
-                #         )
-                #     else:
-                #         ohe_labels = labels
-                #     logits = self.model_class.get_output(model, inputs)
-                #     loss = self.loss_function(  # softmax is done by DiceLoss
-                #         logits,
-                #         ohe_labels,
+                # optimizer.zero_grad()
+                # logits = self.model_class.get_output(model, inputs)
+                # if self.out_channels > 1:
+                #     ohe_labels = one_hot(
+                #         labels, num_classes=self.config.model_info.out_channels
                 #     )
+                # else:
+                #     ohe_labels = labels
+
+                # loss = self.loss_function(  # softmax is done by DiceLoss
+                #     logits,
+                #     ohe_labels,
+                # )
+                # loss.backward()
+                # optimizer.step()
+                # epoch_loss += loss.detach().item()
+
+                with torch.cuda.amp.autocast():
+                    if self.out_channels > 1:
+                        ohe_labels = one_hot(
+                            labels, num_classes=self.config.model_info.out_channels
+                        )
+                    else:
+                        ohe_labels = labels
+                    logits = self.model_class.get_output(model, inputs)
+                    loss = self.loss_function(  # softmax is done by DiceLoss
+                        logits,
+                        ohe_labels,
+                    )
 
                 if self.plot_train:
                     test_logits = logits.detach().cpu().numpy()
@@ -539,12 +538,12 @@ class Trainer:
                         # view.add_labels(ohe_labels[0].cpu().numpy().astype(np.int8), name="label")
                         # napari.run()
                         for j in range(self.config.batch_size):
-                            logger.info(f"Logits min {test_logits[j].min()}")
-                            logger.info(f"Logits max {test_logits[j].max()}")
-                            logger.info(f"Labels min {ohe_labels[j].min()}")
-                            logger.info(f"Labels max {ohe_labels[j].max()}")
+                            # logger.info(f"Logits min {test_logits[j].min()}")
+                            # logger.info(f"Logits max {test_logits[j].max()}")
+                            # logger.info(f"Labels min {ohe_labels[j].min()}")
+                            # logger.info(f"Labels max {ohe_labels[j].max()}")
                             for i in range(self.out_channels):
-                                if i == 0:
+                                if i == 0 and self.out_channels > 1:
                                     continue
                                 log = test_logits[j][i]
                                 logger.debug(f"Train : Logits shape {log.shape}")
@@ -562,29 +561,30 @@ class Trainer:
 
                 if self.show_grad and (epoch + 1) % self.testing_interval == 0:
                     grad_model = model.module if hasattr(model, "module") else model
-                    # print(f"Out channels grad {model.out.conv[0].weight.grad}")
-                    print(
+                    # logger.info(f"Out channels grad {model.out.conv[0].weight.grad}")
+                    logger.info(
                         f"Out channels shape {grad_model.out.conv[0].weight.grad.shape}"
                     )
+                    logger.info(f"NOTE : Scaler might show gradients as 0")
                     for i in range(self.out_channels):
-                        print(f"CHANNEL {i}")
+                        logger.info(f"CHANNEL {i}")
                         grad = torch.abs(grad_model.out.conv[0].weight.grad)
-                        print(f"Out channel {i} shape {grad[i].shape}")
-                        print(
+                        logger.info(f"Out channel {i} shape {grad[i].shape}")
+                        logger.info(
                             f"Out channel {i} mean {grad[i].view(grad[i].size(0), -1).mean(1)}"
                         )
-                        # print(f"Out channel {i} min {grad[i].min()}")
-                        # print(f"Out channel {i} max {grad[i].max()}")
+                        # logger.info(f"Out channel {i} min {grad[i].min()}")
+                        # logger.info(f"Out channel {i} max {grad[i].max()}")
 
                 # optimizer.step()
                 # epoch_loss += loss.detach().item()
 
-                # scaler.scale(loss).backward()
-                # epoch_loss += loss.detach().item()
-                # scaler.unscale_(optimizer)
-                # scaler.step(optimizer)
-                # scaler.update()
-                # optimizer.zero_grad()
+                scaler.scale(loss).backward()
+                epoch_loss += loss.detach().item()
+                scaler.unscale_(optimizer)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
 
                 logger.info(
                     f"* {step - 1}/{len(train_ds) // train_loader.batch_size}, "
@@ -623,9 +623,9 @@ class Trainer:
                         # pred = decollate_batch(val_outputs)
                         # labs = decollate_batch(val_labels)
 
-                        # print(f"VAL LABELS SHAPE {val_labels.shape}")
-                        # print(f"LABS SHAPE {len(labs)}")
-                        # print(f"LABS 0 SHAPE {labs[0].shape}")
+                        # logger.info(f"VAL LABELS SHAPE {val_labels.shape}")
+                        # logger.info(f"LABS SHAPE {len(labs)}")
+                        # logger.info(f"LABS 0 SHAPE {labs[0].shape}")
 
                         if self.out_channels > 1:
                             post_pred = Compose(
@@ -656,9 +656,9 @@ class Trainer:
 
                         # [logger.info(f"Pred shape {p.shape}") for p in pred]
                         # [logger.info(f"lab shape {lab.shape}") for lab in labs]
-                        # print(f"VAL LABELS SHAPE {ohe_val_labels.shape}")
+                        # logger.info(f"VAL LABELS SHAPE {ohe_val_labels.shape}")
                         # for raw_label in ohe_val_labels:
-                        #     print(f"RAW LABEL SHAPE {raw_label[0].shape}")
+                        #     logger.info(f"RAW LABEL SHAPE {raw_label[0].shape}")
                         #     plot_tensor(raw_label[0], "raw_label", 0)
 
                         post_outputs = [
@@ -679,13 +679,13 @@ class Trainer:
                             # logger.info(f"Val inputs shape {val_outputs[0].shape}")
                             # logger.info(f"Val labels shape {val_labels[0].shape}")
                             logger.info("-----------------")
-                            logger.info(f"Val inputs min {post_outputs[0].min()}")
-                            logger.info(f"Val inputs max {post_outputs[0].max()}")
-                            logger.info(f"Val labels min {post_labels[0].min()}")
-                            logger.info(f"Val labels max {post_labels[0].max()}")
+                            # logger.info(f"Val inputs min {post_outputs[0].min()}")
+                            # logger.info(f"Val inputs max {post_outputs[0].max()}")
+                            # logger.info(f"Val labels min {post_labels[0].min()}")
+                            # logger.info(f"Val labels max {post_labels[0].max()}")
 
                             for i in range(self.out_channels):
-                                if i == 0:
+                                if i == 0 and self.out_channels > 1:
                                     continue
                                 pred = post_outputs[0].cpu().numpy()
                                 # logger.info(f"Pred shape {pred.shape}")
@@ -717,7 +717,7 @@ class Trainer:
                     # try:
                     self.make_train_csv()
                     # except Exception as e:
-                    #     print(e)
+                    #     logger.info(e)
 
                     if metric >= best_metric:
                         best_metric = metric
@@ -759,78 +759,99 @@ class Trainer:
         )
 
 
-if __name__ == "__main__":
-
-    # from tifffile import imread
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG)
-    logger.info("Starting training")
-
+def initialize_config():
     config = TrainerConfig()
-    # config.model_info.name = "SegResNet"
     config.model_info.name = "SwinUNetR"
-    # config.model_info.name = "TRAILMAP_MS"
     # config.validation_percent = 0.8 # None if commented -> use train/val folders instead
 
     config.val_interval = 2
 
-    config.batch_size = 10
-
-    repo_path = Path(__file__).resolve().parents[0]
-    print(f"REPO PATH : {repo_path}")
-
-    config.train_volume_directory = str(
-        # repo_path / "dataset/somatomotor/volumes"
-        repo_path
-        / "dataset/axons/training/custom-training/volumes"
-    )
-    config.train_label_directory = str(
-        # repo_path / "dataset/visual_tif/labels/labels_sem"
-        # repo_path / "dataset/visual_tif/artefact_neurons"
-        # repo_path / "dataset/somatomotor/lab_sem"
-        repo_path
-        / "dataset/axons/training/custom-training/labels"
-    )
-
-    # use these if not using validation_percent
-    config.validation_volume_directory = str(
-        # repo_path / "dataset/somatomotor/volumes"
-        repo_path
-        / "dataset/axons/validation/custom-validation/volumes"
-        # / "dataset/visual_tif/volumes"
-        # str(repo_path / "dataset/visual_tif/volumes")
-    )
-    config.validation_label_directory = str(
-        repo_path
-        / "dataset/axons/validation/custom-validation/labels"
-        # repo_path / "dataset/somatomotor/artefact_neurons"
-        # / "dataset/visual_tif/labels/labels_sem"
-        # repo_path / "dataset/somatomotor/lab_sem"
-    )
-
-    config.model_info.out_channels = 3
     config.learning_rate = 1e-4
     config.use_val_loss_for_validation = False
     # config.plot_training_inputs = True
 
-    save_folder = "results/results_DiceCE_axons_no_scaler"  # "results_multichannel"  # "results_one_channel"
-    config.results_path = str(repo_path / save_folder)
-    (repo_path / save_folder).mkdir(exist_ok=True)
-
     config.sampling = True
-    config.do_augmentation = False
+    config.do_augmentation = False  # disabled to ensure there were no issues with it
     config.num_samples = 15
     config.max_epochs = 100
 
-    print(f"Saving to {config.results_path}")
+    repo_path = Path(__file__).resolve().parents[0]
+    logger.info(f"REPO PATH : {repo_path}")
+
+    return config, repo_path
+
+
+def start_train(config):
+    logger.info(f"Saving to {config.results_path}")
     trainer = Trainer(config)
     trainer.log_parameters()
 
     #############
     # DEBUG
+    trainer.testing_interval = 20
     trainer.plot_train = False
-    trainer.show_grad = True
+    trainer.show_grad = False
     trainer.plot_val = False
     #############
 
     trainer.train()
+
+
+if __name__ == "__main__":
+    """
+    Trains the mono and multichannel models
+    To reproduce the results of monochannel, use the indicated patths and channel numbers
+    """
+
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.DEBUG)
+    logger.info("Starting training")
+    config, repo_path = initialize_config()
+    ###################################################
+    ###################################################
+    ###################################################
+    ###################################################
+
+    # CHANGE ONLY THE PARAMETERS BELOW for reproducibility
+
+    # BATCH SIZE
+    config.batch_size = 10  # change if memory issues
+
+    # PATHS
+    config.train_volume_directory = str(
+        repo_path
+        / "dataset_clean/somatomotor/volumes"  # USE FOR : monochannel
+        # "dataset_clean/somatomotor/augmented_volumes"  # USE FOR : monochannel_aug
+        #  "dataset_clean/axons/training/custom-training/volumes" # USE FOR : multichannel
+        # "dataset_clean/axons/training/custom-training/volumes_augmented" # USE FOR : multichannel_aug
+    )
+    config.train_label_directory = str(
+        repo_path
+        / "dataset_clean/somatomotor/lab_sem"  # USE FOR : monochannel and monochannel_aug
+        # / "dataset_clean/axons/training/custom-training/labels" # USE FOR : multichannel and multichannel_aug
+    )
+
+    # use these if not using validation_percent
+    config.validation_volume_directory = str(
+        repo_path
+        / "dataset_clean/visual_tif/volumes"  # USE FOR : monochannel and monochannel_aug
+        # / "dataset_clean/axons/validation/custom-validation/volumes" # USE FOR : multichannel and multichannel_aug
+    )
+    config.validation_label_directory = str(
+        repo_path
+        / "dataset_clean/visual_tif/labels_sem"  # USE FOR : monochannel and monochannel_aug
+        # / "dataset_clean/axons/validation/custom-validation/labels" # USE FOR : multichannel and multichannel_aug
+    )
+
+    # CHANGE CHANNELS FOR MONO/MULTI
+    config.model_info.out_channels = 1  # USE : 1 for monochannel
+    # config.model_info.out_channels = 3  # USE : 3 for multichannel
+
+    save_folder = "results/training_output"  # change if needed
+    ###################################################
+    ###################################################
+    ###################################################
+    ###################################################
+    config.results_path = str(repo_path / save_folder)
+    (repo_path / save_folder).mkdir(exist_ok=True)
+    start_train(config)
