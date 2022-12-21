@@ -171,7 +171,7 @@ class InferenceWorkerConfig:
 # Training configs
 class TrainerConfig:
     def __init__(self, **kwargs):
-        self.model_info = ModelInfo("TRAILMAP_MS")
+        self.model_info = ModelInfo("SwinUNetR")
         self.model_name = self.model_info.name
         self.out_channels = self.model_info.out_channels
         self.weights_path = None
