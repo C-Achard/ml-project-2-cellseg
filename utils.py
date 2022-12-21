@@ -140,6 +140,22 @@ def create_dataset_dict(volume_directory, label_directory):
     return data_dicts
 
 
+def create_dataset_dict_no_labs(volume_directory):
+    """Creates unsupervised data dictionary for MONAI transforms and training."""
+    images_filepaths = sorted(glob.glob(str(Path(volume_directory) / "*.tif")))
+    if len(images_filepaths) == 0:
+        raise ValueError("Data folder is empty")
+
+    logger.info("Images :")
+    for file in images_filepaths:
+        logger.info(Path(file).stem)
+    logger.info("*" * 10)
+
+    data_dicts = [{"image": image_name} for image_name in images_filepaths]
+
+    return data_dicts
+
+
 def get_padding_dim(image_shape, anisotropy_factor=None):
     """
     Finds the nearest and superior power of two for each image dimension to zero-pad it for CNN processing,
