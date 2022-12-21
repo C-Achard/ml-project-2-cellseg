@@ -84,7 +84,7 @@ def crf(image, prob, sa, sb, sg, w1, w2, n_iter=5):
     featsGaussian = create_pairwise_gaussian(sdims=(sg, sg, sg), shape=image.shape[1:])
     featsBilateral = create_pairwise_bilateral(
         sdims=(sa, sa, sa),
-        schan=[sb for i in range(image.shape[0])],
+        schan=tuple([sb for i in range(image.shape[0])]),
         img=image,
         chdim=image.shape[0],
     )

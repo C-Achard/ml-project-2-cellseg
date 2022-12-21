@@ -82,12 +82,11 @@ class PredictWNet:
         images = images.to(self.device)
         with torch.no_grad():
             output = self.model.forward_encoder(images)
-            output = torch.argmax(output, dim=1)
             output = output.cpu().numpy()
-
+            
         if self.crf:
             output = crf_batch(
-                images,
+                images.cpu().numpy(),
                 output,
                 self.config.sa,
                 self.config.sb,
