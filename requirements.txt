@@ -6,6 +6,9 @@ napari[all]
 scikit-image
 dask-image
 einops
+git+https://github.com/lucasb-eyer/pydensecrf.git
+cython
 tifffile
 itk
 nibabel
+
