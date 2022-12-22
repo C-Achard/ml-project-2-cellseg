@@ -26,6 +26,22 @@ The following commands will create a new conda environment named `cellseg` and i
 - Install pytorch according to the instructions on the website, with python 3.8 and using pip. Use cuda if relevant, it is strongly recommended even for inference.
 - `pip install -r requirements.txt`
 
+## Guided overview
+
+In order to do obtain the result for the unsupervised model you should follow these steps. **Note that all the notebook and python files are on models/wnet/**:
+
+0. You should have downloaded the folder dataset_clean and added it in the main folder, You should download the file weights_results/results_unsupervised/test_wnet_1500e.pth from the Drive
+
+1. If you want to do the inference (not recommended as it takes multiple Go of ram) You should run the notebook predict.ipynb and run the last cell for each image segmentated. To do so you should select the different layers 'Segmentation 1 image' and run the cell afterward. Then you can save the new layers directly from napari
+
+1. You can directly download the results that are on the folder results (output and statistics)/self supervised/ and put them on the folder results/self supervised/
+
+2. To do the relabelling of the image used to evaluate the performances of the unsupervised model you should run the script relabel_images.py. Once you did it you should see a window with the previous neurons that had the same labels highlighted one after the other according to how they were speparated by the script. When it is finished (or before, if you want to skip it), you should see 2 neurons that were forgotten that are shown. To see the image in 3D you should click on the bottom left of the napari window on the button with a square inside, or you can press ctr+y. Then you can change the view by clicking on the image and moving your mouse. On the left middle you should have 3 layers: labels, potential neurons and images. To see only the potential neurons on top of the image you should click on the eye button of the layer labels. You should see 2 neurons. To find their value you should click on the layer "potential neurons" (on the left pannel) and then by moving the mouse on these neurons you will see on bottom left for instance "potential neurons  [21 19 9]:  13", which mean that one of the label's value that you can add is 13. On the terminal from which you run the code you should see "Which labels do you want to add (0 to skip) ? (separated by a comma):", to add the 2 forgotten neurons you should write "13,29", press enter and close the napari window. The you will see the 2 neurons that you added, you can close the window, and write "n" to the 2 following questions. Then you will have your new labels saved.
+
+3. To evaluate the model performances on this image you can run the notebook evaluate_performances.ipynb. The image used in the report is the 2nd one
+
+4. To visualize the evaluation metric you can run the file visualize_performances.py. You can compare the classification of the labels between found, not found, artifacts and fused by hiding all the other layers (by clicking on the eye button) and comparing what the model found and what the ground truth is.
+
 ## Quality check and relabelling
 All the scripts and notebooks that are used to label the images and perform a quality check of the labels are in the folder `label`.
 To relabel the labels to ensure that they are unique, check their quality and add neurons missed you can use the function `relabel` in the file `relabel.py`, as shown in the main of this file.
