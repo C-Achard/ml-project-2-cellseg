@@ -53,4 +53,3 @@ To perform inference you can use the `PredictWNet` class from `predict.py` in a 
 - scikit-image
 - tifffile
 - Others (see requirements.txt)
-
