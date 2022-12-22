@@ -28,7 +28,7 @@ The following commands will create a new conda environment named `cellseg` and i
 
 ## Guided overview
 
-In order to do obtain the result for the unsupervised model you should follow these steps. **Note that all the notebook and python files are on models/wnet/**:
+In order to do obtain the result for the unsupervised model you should follow these steps. **Note that all the notebooks and python files for this guide are on models/wnet/**:
 
 0. You should have downloaded the folder dataset_clean and added it in the main folder, You should download the file weights_results/results_unsupervised/test_wnet_1500e.pth from the Drive
 
