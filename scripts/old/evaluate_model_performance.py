@@ -212,7 +212,7 @@ if __name__ == "__main__":
     evaluate_model_performance(c, d)
     """
     from tifffile import imread
-    labels=imread("dataset/visual_tif/labels/testing_im_new_label.tif")
-    labels_model=imread("dataset/visual_tif/artefact_neurones/basic_model.tif")
+    labels=imread("dataset_clean/visual_tif/labels/testing_im_new_label.tif")
+    labels_model=imread("dataset_clean/visual_tif/artefact_neurones/basic_model.tif")
     evaluate_model_performance(labels, labels_model,visualize=True)
     """

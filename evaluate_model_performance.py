@@ -34,14 +34,14 @@ def map_labels(labels, model_labels):
         total_pixel_found = 0
         for ii in range(len(unique)):
             true_positive_ratio_model = counts[ii] / np.sum(counts)
-            #if >50% of the pixels of the label i of the model correspond to the background it is considered as an artifact, that should not have been found
+            # if >50% of the pixels of the label i of the model correspond to the background it is considered as an artifact, that should not have been found
             if unique[ii] == 0:
                 if true_positive_ratio_model > 0.5:
-                    #-> artifact found
+                    # -> artifact found
                     new_labels.append([i, true_positive_ratio_model])
             else:
-                #if >50% of the pixels of the label unique[ii] of the true label map to the same label i of the model,
-                #the label i is considered either as a fused neurons, if it the case for multiple unique[ii] or as neurone found
+                # if >50% of the pixels of the label unique[ii] of the true label map to the same label i of the model,
+                # the label i is considered either as a fused neurons, if it the case for multiple unique[ii] or as neurone found
                 ratio_pixel_found = counts[ii] / np.sum(labels == unique[ii])
                 if ratio_pixel_found > 0.5:
                     total_pixel_found += np.sum(counts[ii])
@@ -49,10 +49,10 @@ def map_labels(labels, model_labels):
                         [i, unique[ii], ratio_pixel_found, true_positive_ratio_model]
                     )
         if len(tmp_map) == 1:
-            #map to only one true neuron -> found neuron
+            # map to only one true neuron -> found neuron
             map_labels_existing.append(tmp_map[0])
         elif len(tmp_map) > 1:
-            #map to multiple true neurons -> fused neuron
+            # map to multiple true neurons -> fused neuron
             for ii in range(len(tmp_map)):
                 tmp_map[ii][3] = total_pixel_found / np.sum(counts)
             map_fused_neurons += tmp_map
@@ -254,6 +254,12 @@ if __name__ == "__main__":
     """
     from tifffile import imread
 
-    labels = imread("dataset_clean/visual_tif/labels/testing_im_new_label.tif")
-    labels_model = imread("test/instance_labels.tif")
+    labels = imread("dataset_clean/VALIDATION/validation_labels.tif")
+    try:
+        labels_model = imread("results/watershed_based_model/instance_labels.tif")
+    except:
+        raise Exception(
+            "you should download the model's label that are under results (output and statistics)/watershed_based_model/instance_labels.tif and put it in the folder results/watershed_based_model/"
+        )
+        
     evaluate_model_performance(labels, labels_model, visualize=True)

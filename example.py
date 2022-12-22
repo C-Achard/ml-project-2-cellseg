@@ -873,6 +873,7 @@ class Inference:
 
 
 if __name__ == "__main__":
+    """
     from tifffile import imread
 
     logger = logging.getLogger(__name__)
@@ -881,14 +882,14 @@ if __name__ == "__main__":
 
     config = TrainerConfig()
     config.validation_percent = 0.8
-    config.train_volume_directory = str(Path("dataset/cropped_visual/train/vol"))
-    config.train_label_directory = str(Path("dataset/cropped_visual/train/lab_sem"))
+    config.train_volume_directory = str(Path("dataset_clean/cropped_visual/train/volumes"))
+    config.train_label_directory = str(Path("dataset_clean/cropped_visual/train/lab_sem"))
 
     # use these if not using validation_percent
     # config.val_volume_directory = str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/vol")
     # config.val_label_directory = str(Path.home() / "Desktop/Proj_bachelor/data/cropped_visual/val/lab_sem")
 
-    config.results_path = str("../results")
+    config.results_path = str("results")
 
     config.num_samples = 1
     config.max_epochs = 10
@@ -902,10 +903,11 @@ if __name__ == "__main__":
     pred_conf.model_info.name = "SwinUNetR"
     pred_conf.model_info.model_input_size = 128
 
-    pred_conf.results_path = str("../test")
+    pred_conf.results_path = str("test")
     pred_conf.weights_config.path = str()
     pred_conf.image = imread(str())
 
     worker = Inference(config=pred_conf)
     worker.log_parameters()
     worker.inference()
+    """

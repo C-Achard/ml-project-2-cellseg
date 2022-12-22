@@ -1,3 +1,4 @@
+from pathlib import Path
 class Config:
     def __init__(self):
         # WNet
@@ -25,7 +26,7 @@ class Config:
 
         # Data
         self.train_volume_directory = (
-            r"/tmp/pycharm_project_622/dataset/cropped_visual/train/volumes"
+            Path(__file__).resolve().parents[0]
         )
         self.do_augmentation = True
         self.parralel = False

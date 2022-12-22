@@ -53,7 +53,7 @@ def labeL_axons(volume_directory):
 if __name__ == "__main__":
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
-    path = repo_path / "dataset/axons/training/training-set/volumes"
+    path = repo_path / "dataset_clean/axons/training/custom-training/volumes"
     # path = repo_path / "dataset/axons/validation/validation-set/volumes"
 
     labeL_axons(str(path))

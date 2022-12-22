@@ -404,10 +404,10 @@ if __name__ == "__main__":
     repo_path = Path(__file__).resolve().parents[1]
     print(f"REPO PATH : {repo_path}")
     paths = [
-        "dataset/cropped_visual/train",
-        "dataset/cropped_visual/val",
-        "dataset/somatomotor",
-        "dataset/visual_tif",
+        "dataset_clean/cropped_visual/train",
+        "dataset_clean/cropped_visual/val",
+        "dataset_clean/somatomotor",
+        "dataset_clean/visual_tif",
     ]
     for data_path in paths:
         path = str(repo_path / data_path)

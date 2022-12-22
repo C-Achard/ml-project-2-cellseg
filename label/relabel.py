@@ -319,14 +319,14 @@ if __name__ == "__main__":
     file_path = str(
         Path(
             repo_path
-            / "dataset/visual_tif/labels/testing_im.tif"
+            / "dataset_clean/visual_tif/labels/testing_im.tif"
             # repo_path / "dataset/somatomotor/labels/c5labels.tif"
         )
     )
     image_path = str(
         Path(
             repo_path,
-            "dataset/visual_tif/volumes/0-visual.tif"
+            "dataset_clean/visual_tif/volumes/0-visual.tif"
             # repo_path, "dataset/somatomotor/volumes/c5images.tif"
         )
     )
