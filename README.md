@@ -30,7 +30,7 @@ The following commands will create a new conda environment named `cellseg` and i
 
 In order to do obtain the result for the unsupervised model you should follow these steps. **Note that all the notebooks and python files for this guide are on models/wnet/**:
 
-0. You should have downloaded the folder dataset_clean and added it in the main folder, You should download the file `weights_results/results_unsupervised/test_wnet_1500e.pth` from the Drive
+0. You should have downloaded the folder dataset_clean and added it in the main folder, You should download the file `weights_results/results_unsupervised/new_results_1500e.zip` from the Drive
 
 1. If you want to do the inference (not recommended as it takes multiple Go of ram) You should run the notebook predict.ipynb and run the last cell for each image segmentated. To do so you should select the different layers 'Segmentation 1 image' and run the cell afterward. Then you can save the new layers directly from napari
 
