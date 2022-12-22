@@ -378,7 +378,7 @@ def create_artefact_labels_from_folder(
     # create the output folder
     os.makedirs(path + "/artefact_neurons", exist_ok=True)
     # create the artefact labels
-    for i in range(len(path_labels)):
+    for i in range(len(path_images)):
         print(path_labels[i])
         # consider that the images and the labels have names in the same alphabetical order
         create_artefact_labels(
