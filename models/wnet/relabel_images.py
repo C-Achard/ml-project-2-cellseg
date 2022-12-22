@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__) / "../../../"))
 repo_path = Path(__file__).resolve().parents[2]
 import label.relabel as lab
-import tifffile as tiff
+
 
 path_true_labels_2=str(
         repo_path
