@@ -26,12 +26,13 @@ class Config:
 
         # Data
         self.train_volume_directory = (
-            Path(__file__).resolve().parents[0]
+            r"/tmp/pycharm_project_622/dataset/cropped_visual/train/volumes"
         )
         self.do_augmentation = True
-        self.parralel = False
+        self.parallel = False
 
         self.save_model = True
-        self.save_model_path = r"./test_wnet_1500e.pth"
-        self.save_losses_path = r"./1500e_loss_record.txt"
+        self.save_model_path = r"./chkpt_res/test_wnet_checkpoint_4500e.pth"
+        self.save_losses_path = r"./chkpt_res/checkpoint_loss_record_4500e.txt"
         self.save_every = 250
+        self.weights_path = None

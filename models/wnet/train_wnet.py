@@ -38,10 +38,13 @@ from utils import create_dataset_dict_no_labs, get_padding_dim
 __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 
 
-def train():
+def train(weights_path = None):
     config = Config()
     CUDA = torch.cuda.is_available()
     device = torch.device("cuda:0" if CUDA else "cpu")
+
+    print("Config:")
+    [print(a) for a in config.__dict__.items()]
 
     print("Initializing training...")
     ###################################################
@@ -72,7 +75,15 @@ def train():
         out_channels=config.out_channels,
         num_classes=config.num_classes,
     )
-    model = nn.DataParallel(model).cuda() if CUDA and config.parralel else model
+    model = nn.DataParallel(model).cuda() if CUDA and config.parallel else model
+
+    if weights_path is not None:
+        model.load_state_dict(
+            torch.load(
+                weights_path,
+                map_location=device
+            )
+        )
 
     print("- getting the optimizers")
     # Initialize the optimizers
@@ -282,4 +293,7 @@ def get_dataset_monai(config):
 
 
 if __name__ == "__main__":
-    train()
+
+    from pathlib import Path
+    weights_location = str(Path(__file__).resolve().parent / "test_wnet_checkpoint.pth")
+    train(weights_location)
