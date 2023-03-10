@@ -17,11 +17,11 @@ class Config:
         self.num_workers = 4
 
         # CRF
-        self.sa = 5  # According to the paper, should be learnt via grid search. However we miss ground truth for that
-        self.sb = 5  # According to the paper, should be learnt via grid search. However we miss ground truth for that
-        self.sg = 1  # Initialization as in the paper
-        self.w1 = 1  # According to the paper, should be learnt via grid search. However we miss ground truth for that
-        self.w2 = 1  # Initialization as in the paper
+        self.sa = 50
+        self.sb = 10
+        self.sg = 1
+        self.w1 = 50
+        self.w2 = 10
         self.n_iter = 5
 
         # Data

@@ -92,7 +92,7 @@ class PredictWNet:
             from crf import crf, crf_batch
             output = crf_batch(
                 images.cpu().numpy(),
-                output,
+                output  ,
                 self.config.sa,
                 self.config.sb,
                 self.config.sg,
@@ -102,7 +102,7 @@ class PredictWNet:
             )
         return output
 
-def monai_window_inference(config, trained_model_path):
+def monai_window_inference(config, trained_model_path, crf = True):
     from utils import create_dataset_dict_no_labs
     from monai.inferers import sliding_window_inference
     import tifffile as tiff
@@ -126,35 +126,60 @@ def monai_window_inference(config, trained_model_path):
     )
     train_files = [d.get("image") for d in train_files]
     volumes = tiff.imread(train_files[0]).astype(np.float32)
+
     print(f"Vol shape {volumes.shape}")
     volumes=np.expand_dims(volumes,0)
     volumes=np.expand_dims(volumes,0)
+
     images = torch.from_numpy(volumes).float()
     images = images.to(device)
     print(images.shape)
+
     res = sliding_window_inference(
         inputs=images,
-        roi_size=None,
+        roi_size=[64,64,64],
         sw_batch_size=1,
         predictor=model.forward_encoder,
         overlap=0,
         progress=True,
     )
-    return res
+    res = res.detach().cpu().numpy()[0]
+
+    # if crf:
+    from crf import crf
+
+    I =  images.detach().cpu().numpy()[0]
+    P = res
+
+    print(f"I shape : {I.shape}")
+    print(f"P shape : {P.shape}")
+
+    crf_output = crf(
+        I,
+        P,
+        config.sa,
+        config.sb,
+        config.sg,
+        config.w1,
+        config.w2,
+        config.n_iter,
+    )
+    return np.array([res, crf_output])
 
 if __name__ == "__main__":
     from config import Config
     config = Config()
-    config.train_volume_directory = r"../../dataset/somatomotor/volumes"
-    # config.train_volume_directory = r"C:/Users/Cyril/Desktop/test/test"
+    # config.train_volume_directory = r"../../dataset/cropped_visual/val/volumes"
+    # config.train_volume_directory = r"../../dataset/somatomotor/volumes"
+    config.train_volume_directory = r"C:/Users/Cyril/Desktop/test/test"
     trained_model_path = r"./chkpt_res/test_wnet_checkpoint_4500e.pth"
     [print(a) for a in config.__dict__.items()]
-    result = monai_window_inference(config, trained_model_path)
-    print(len(result))
-    res = result[0].detach().cpu()
+    result = monai_window_inference(config, trained_model_path, crf=True)
+    print(result.shape)
 
     import napari
 
     view = napari.Viewer()
-    view.add_image(np.array(res), name="test")
+    view.add_image(result[0], name="no_crf")
+    view.add_image(result[1], name="crf")
     napari.run()
