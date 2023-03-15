@@ -17,21 +17,22 @@ class Config:
         self.num_workers = 4
 
         # CRF
-        self.sa = 5  # According to the paper, should be learnt via grid search. However we miss ground truth for that
-        self.sb = 5  # According to the paper, should be learnt via grid search. However we miss ground truth for that
-        self.sg = 1  # Initialization as in the paper
-        self.w1 = 1  # According to the paper, should be learnt via grid search. However we miss ground truth for that
-        self.w2 = 1  # Initialization as in the paper
+        self.sa = 50
+        self.sb = 10
+        self.sg = 1
+        self.w1 = 50
+        self.w2 = 10
         self.n_iter = 5
 
         # Data
         self.train_volume_directory = (
-            Path(__file__).resolve().parents[0]
+            r"/tmp/pycharm_project_622/dataset/cropped_visual/train/volumes"
         )
         self.do_augmentation = True
-        self.parralel = False
+        self.parallel = False
 
         self.save_model = True
-        self.save_model_path = r"./test_wnet_1500e.pth"
-        self.save_losses_path = r"./1500e_loss_record.txt"
+        self.save_model_path = r"./chkpt_res/test_wnet_checkpoint_4500e.pth"
+        self.save_losses_path = r"./chkpt_res/checkpoint_loss_record_4500e.txt"
         self.save_every = 250
+        self.weights_path = None

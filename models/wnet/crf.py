@@ -75,26 +75,30 @@ def crf(image, prob, sa, sb, sg, w1, w2, n_iter=5):
         np.ndarray: Array of shape (K, H, W, D) containing the refined class probabilities for each pixel.
     """
     d = dcrf.DenseCRF(image.shape[1] * image.shape[2] * image.shape[3], prob.shape[0])
+    # print(f"Image shape : {image.shape}")
+    # print(f"Prob shape : {prob.shape}")
+    # d = dcrf.DenseCRF(262144, 3) # npoints, nlabels
 
     # Get unary potentials from softmax probabilities
     U = unary_from_softmax(prob)
     d.setUnaryEnergy(U)
 
     # Generate pairwise potentials
-    featsGaussian = create_pairwise_gaussian(sdims=(sg, sg, sg), shape=image.shape[1:])
+    featsGaussian = create_pairwise_gaussian(sdims=(sg, sg, sg), shape= image.shape[1:]) # image.shape)
     featsBilateral = create_pairwise_bilateral(
         sdims=(sa, sa, sa),
         schan=tuple([sb for i in range(image.shape[0])]),
         img=image,
-        chdim=image.shape[0],
+        chdim=-1,
     )
 
     # Add pairwise potentials to the CRF
     compat = np.ones(prob.shape[0], dtype=np.float32) - np.diag(
-        [1 for i in range(prob.shape[0])], dtype=np.float32
+        [1 for i in range(prob.shape[0])]
+        # , dtype=np.float32
     )
-    d.addPairwiseEnergy(featsGaussian, compat=compat * w2)
-    d.addPairwiseEnergy(featsBilateral, compat=compat * w1)
+    d.addPairwiseEnergy(featsGaussian, compat=compat.astype(np.float32) * w2)
+    d.addPairwiseEnergy(featsBilateral, compat=compat.astype(np.float32) * w1)
 
     # Run inference
     Q = d.inference(n_iter)
