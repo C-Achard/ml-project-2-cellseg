@@ -172,7 +172,8 @@ if __name__ == "__main__":
     # config.train_volume_directory = r"../../dataset/cropped_visual/val/volumes"
     # config.train_volume_directory = r"../../dataset/somatomotor/volumes"
     config.train_volume_directory = r"C:/Users/Cyril/Desktop/test/test"
-    trained_model_path = r"./chkpt_res/test_wnet_checkpoint_4500e.pth"
+    # trained_model_path = r"./chkpt_res/test_wnet_checkpoint_4500e.pth"
+    trained_model_path = r"./2_class/test_wnet_2class.pth"
     [print(a) for a in config.__dict__.items()]
     result = monai_window_inference(config, trained_model_path, crf=True)
     print(result.shape)

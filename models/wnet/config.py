@@ -4,7 +4,7 @@ class Config:
         # WNet
         self.in_channels = 1
         self.out_channels = 1
-        self.num_classes = 3
+        self.num_classes = 2
 
         self.lr = 1e-4
 
@@ -32,7 +32,7 @@ class Config:
         self.parallel = False
 
         self.save_model = True
-        self.save_model_path = r"./chkpt_res/test_wnet_checkpoint_4500e.pth"
-        self.save_losses_path = r"./chkpt_res/checkpoint_loss_record_4500e.txt"
+        self.save_model_path = r"./2_class/test_wnet_2class.pth"
+        self.save_losses_path = r"./2_class/test_wnet_2class.txt"
         self.save_every = 250
         self.weights_path = None
