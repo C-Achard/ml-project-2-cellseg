@@ -41,7 +41,7 @@ __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 def train(weights_path = None):
     config = Config()
     CUDA = torch.cuda.is_available()
-    device = torch.device("cuda:1" if CUDA else "cpu")
+    device = torch.device("cuda:2" if CUDA else "cpu")
 
     print("Config:")
     [print(a) for a in config.__dict__.items()]
@@ -295,7 +295,7 @@ def get_dataset_monai(config):
 if __name__ == "__main__":
 
     from pathlib import Path
-    weights_location = str(Path(__file__).resolve().parent / "2_class/test_wnet_2class.pth")
+    # weights_location = str(Path(__file__).resolve().parent / "2_class/test_wnet_2class.pth")
     train(
-        weights_location
+        # weights_location
     )

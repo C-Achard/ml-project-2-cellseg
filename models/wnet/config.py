@@ -12,7 +12,7 @@ class Config:
         self.o_x = 4  # initialization as in the paper
         self.radius = None  # yields to a radius depending on the data shape
 
-        self.num_epochs = 1500
+        self.num_epochs = 400
         self.batch_size = 1
         self.num_workers = 4
 
@@ -28,11 +28,12 @@ class Config:
         self.train_volume_directory = (
             r"/tmp/pycharm_project_622/dataset/cropped_visual/train/volumes"
         )
+
         self.do_augmentation = True
         self.parallel = False
 
         self.save_model = True
-        self.save_model_path = r"./2_class/test_wnet_2class.pth"
-        self.save_losses_path = r"./2_class/test_wnet_2class.txt"
-        self.save_every = 250
+        self.save_model_path = r"./2_class/400e_wnet_2class.pth"
+        self.save_losses_path = r"./2_class/400e_wnet_2class.txt"
+        self.save_every = 100
         self.weights_path = None
