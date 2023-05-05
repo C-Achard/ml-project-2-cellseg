@@ -4,14 +4,12 @@ This file contains the code to train the WNet model.
 
 import torch
 import torch.nn as nn
-
 import numpy as np
-
 import time
 import sys
-
 import tifffile as tiff
 import pickle
+import wandb
 
 from monai.data import CacheDataset, pad_list_data_collate
 from monai.transforms import (
@@ -29,7 +27,7 @@ from monai.transforms import (
 )
 
 from model import WNet
-from config import Config
+from config import Config, WANDB_CONFIG, WANDB_MODE
 from soft_Ncuts import SoftNCutsLoss
 
 sys.path.append("../..")
@@ -39,9 +37,10 @@ __author__ = "Yves Paychère, Colin Hofmann, Cyril Achard"
 
 
 def train(weights_path = None):
+    wandb.init(config=WANDB_CONFIG, project="WNet-ml-project", mode=WANDB_MODE)
     config = Config()
     CUDA = torch.cuda.is_available()
-    device = torch.device("cuda:2" if CUDA else "cpu")
+    device = torch.device("cuda" if CUDA else "cpu")
 
     print("Config:")
     [print(a) for a in config.__dict__.items()]
@@ -61,6 +60,18 @@ def train(weights_path = None):
         num_workers=config.num_workers,
         collate_fn=pad_list_data_collate,
     )
+
+    # import napari
+    # for data in dataloader:
+        # print(f"data test : {data.shape}")
+        # images = data.detach().cpu().numpy()
+        # images = data.detach().cpu().numpy()
+        # labels = data["label"][0].numpy()
+        # view = napari.Viewer()
+        # view.add_image(images)
+        # view.add_image(labels)
+        # napari.run()
+        # break
 
     ###################################################
     #               Training the model                #
@@ -84,6 +95,8 @@ def train(weights_path = None):
                 map_location=device
             )
         )
+
+    wandb.watch(model, log_freq=200)
 
     print("- getting the optimizers")
     # Initialize the optimizers
@@ -135,6 +148,7 @@ def train(weights_path = None):
                 image = image.unsqueeze(0)
 
             # Forward pass
+            print(f"Input shape : {image.shape}")
             enc = model.forward_encoder(image)
 
             # Compute the Ncuts loss
@@ -148,6 +162,7 @@ def train(weights_path = None):
             optimizerE.step()
 
             epoch_ncuts_loss += Ncuts.item()
+            wandb.log({"NCuts loss":Ncuts.item()})
 
             # Forward pass
             enc, dec = model(image)
@@ -163,10 +178,16 @@ def train(weights_path = None):
             optimizerW.step()
 
             epoch_rec_loss += reconstruction_loss.item()
+            wandb.log({"Reconstruction loss": reconstruction_loss.item()})
 
         ncuts_losses.append(epoch_ncuts_loss / len(dataloader))
+        wandb.log({"Ncuts loss_epoch": ncuts_losses[-1]})
         rec_losses.append(epoch_rec_loss / len(dataloader))
+        wandb.log({"Reconstruction loss_epoch": rec_losses[-1]})
         print("Ncuts loss: ", ncuts_losses[-1])
+        wandb.log({"learning_rate model": optimizerW.param_groups[0]["lr"]})
+        wandb.log({"learning_rate encoder": optimizerE.param_groups[0]["lr"]})
+
         if epoch > 0:
             print(
                 "Ncuts loss difference: ",
@@ -205,6 +226,15 @@ def train(weights_path = None):
         torch.save(model.state_dict(), config.save_model_path)
         with open(config.save_losses_path, "wb") as f:
             pickle.dump((ncuts_losses, rec_losses), f)
+
+    model_artifact = wandb.Artifact(
+        "WNet-ml-project",
+        type="model",
+        description="WNet-ml-project",
+        metadata=dict(WANDB_CONFIG),
+    )
+    model_artifact.add_file(config.save_model_path)
+    wandb.log_artifact(model_artifact)
 
     return ncuts_losses, rec_losses, model
 

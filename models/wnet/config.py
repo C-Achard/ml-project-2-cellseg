@@ -26,14 +26,51 @@ class Config:
 
         # Data
         self.train_volume_directory = (
-            r"/tmp/pycharm_project_622/dataset/cropped_visual/train/volumes"
+            # r"/tmp/pycharm_project_622/dataset/cropped_visual/train/volumes"
+            r"../../dataset/cropped_visual/train/volumes"
         )
 
         self.do_augmentation = True
         self.parallel = False
 
         self.save_model = True
-        self.save_model_path = r"./2_class/400e_wnet_2class.pth"
-        self.save_losses_path = r"./2_class/400e_wnet_2class.txt"
+        self.save_model_path = r"./2_class/REP_wnet_2class.pth"
+        self.save_losses_path = r"./2_class/REP_wnet_2class.pkl"
         self.save_every = 100
         self.weights_path = None
+
+
+c = Config()
+###############
+# WANDB_CONFIG
+###############
+# WANDB_MODE = "disabled"
+WANDB_MODE = "online"
+
+WANDB_CONFIG = {
+    # data setting
+    "num_workers": c.num_workers,
+    "do_augmentation": c.do_augmentation,
+    "model_save_path": c.save_model_path,
+    # train setting
+    "batch_size": c.batch_size,
+    "learning_rate": c.lr,
+    "max_epochs": c.num_epochs,
+    "save_every": c.save_every,
+    # model
+    "model_type": "wnet",
+    "model_params": {
+        "in_channels": c.in_channels,
+        "out_channels": c.out_channels,
+        "num_classes": c.num_classes,
+    },
+    # CRF
+    "crf_params": {
+        "sa": c.sa,
+        "sb": c.sb,
+        "sg": c.sg,
+        "w1": c.w1,
+        "w2": c.w2,
+        "n_iter": c.n_iter,
+    },
+}

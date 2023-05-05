@@ -21,7 +21,7 @@ class PredictWNet:
         self.config = config
         self.crf = crf
         CUDA = torch.cuda.is_available()
-        self.device = torch.device("cuda:0" if CUDA else "cpu")
+        self.device = torch.device("cuda" if CUDA else "cpu")
 
         if trained_model_path is None:
             print("No trained model found. Training a new model...")
@@ -109,7 +109,7 @@ def monai_window_inference(config, trained_model_path, crf = True):
 
 
     CUDA = torch.cuda.is_available()
-    device = torch.device("cuda:1" if CUDA else "cpu")
+    device = torch.device("cuda" if CUDA else "cpu")
     print(f"Using {device}")
 
     model = WNet(
